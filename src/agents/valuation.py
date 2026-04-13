@@ -28,7 +28,7 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
     valuation_analysis: dict[str, dict] = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching financial data")
+        progress.update_status(agent_id, ticker, "获取财务数据")
 
         # --- Historical financial metrics ---
         financial_metrics = get_financial_metrics(
@@ -39,12 +39,12 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
             api_key=api_key,
         )
         if not financial_metrics:
-            progress.update_status(agent_id, ticker, "Failed: No financial metrics found")
+            progress.update_status(agent_id, ticker, "失败：未找到财务指标")
             continue
         most_recent_metrics = financial_metrics[0]
 
         # --- Enhanced line‑items ---
-        progress.update_status(agent_id, ticker, "Gathering comprehensive line items")
+        progress.update_status(agent_id, ticker, "获取详细财务条目")
         line_items = search_line_items(
             ticker=ticker,
             line_items=[
@@ -67,7 +67,7 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
             api_key=api_key,
         )
         if len(line_items) < 2:
-            progress.update_status(agent_id, ticker, "Failed: Insufficient financial line items")
+            progress.update_status(agent_id, ticker, "失败：财务条目不足")
             continue
         li_curr, li_prev = line_items[0], line_items[1]
 
@@ -90,7 +90,7 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         )
 
         # Enhanced Discounted Cash Flow with WACC and scenarios
-        progress.update_status(agent_id, ticker, "Calculating WACC and enhanced DCF")
+        progress.update_status(agent_id, ticker, "计算 WACC 和增强 DCF")
         
         # Calculate WACC
         wacc = calculate_wacc(
@@ -138,7 +138,7 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         # ------------------------------------------------------------------
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
         if not market_cap:
-            progress.update_status(agent_id, ticker, "Failed: Market cap unavailable")
+            progress.update_status(agent_id, ticker, "失败：无法获取市值")
             continue
 
         method_values = {
@@ -150,7 +150,7 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
 
         total_weight = sum(v["weight"] for v in method_values.values() if v["value"] > 0)
         if total_weight == 0:
-            progress.update_status(agent_id, ticker, "Failed: All valuation methods zero")
+            progress.update_status(agent_id, ticker, "失败：所有估值方法结果为零")
             continue
 
         for v in method_values.values():
@@ -200,22 +200,24 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
                 "fcf_periods_analyzed": len(fcf_history)
             }
 
+        reasoning_text = _build_reasoning_text(reasoning)
         valuation_analysis[ticker] = {
             "signal": signal,
             "confidence": confidence,
-            "reasoning": reasoning,
+            "reasoning": reasoning_text,
+            "reasoning_data": reasoning,
         }
-        progress.update_status(agent_id, ticker, "Done", analysis=json.dumps(reasoning, indent=4))
+        progress.update_status(agent_id, ticker, "完成", analysis=reasoning_text)
 
     # ---- Emit message (for LLM tool chain) ----
     msg = HumanMessage(content=json.dumps(valuation_analysis), name=agent_id)
     if state["metadata"].get("show_reasoning"):
-        show_agent_reasoning(valuation_analysis, "Valuation Analysis Agent")
+        show_agent_reasoning(valuation_analysis, "估值分析师")
 
     # Add the signal to the analyst_signals list
     state["data"]["analyst_signals"][agent_id] = valuation_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
     
     return {"messages": [msg], "data": data}
 
@@ -492,3 +494,41 @@ def calculate_dcf_scenarios(
         'upside': results['bull'],
         'downside': results['bear']
     }
+
+
+def _signal_cn(sig: str) -> str:
+    """Translate signal to Chinese."""
+    return {"bullish": "看涨", "bearish": "看跌", "neutral": "中性"}.get(sig, sig)
+
+
+def _build_reasoning_text(reasoning: dict) -> str:
+    """Convert the structured valuation reasoning dict to a concise Chinese text summary."""
+
+    parts = []
+
+    # -- Individual method analyses --
+    method_labels = {
+        "dcf_analysis": "DCF分析",
+        "owner_earnings_analysis": "所有者收益估值",
+        "ev_ebitda_analysis": "EV/EBITDA估值",
+        "residual_income_analysis": "剩余收益模型",
+    }
+
+    for key, label in method_labels.items():
+        data = reasoning.get(key)
+        if data:
+            sig = data.get("signal", "neutral")
+            details = data.get("details", "")
+            # Extract the gap percentage from details for a concise summary
+            parts.append(f"{label}：{_signal_cn(sig)}（{details}）")
+
+    # -- DCF scenario analysis --
+    dcf_scenarios = reasoning.get("dcf_scenario_analysis")
+    if dcf_scenarios:
+        bear = dcf_scenarios.get("bear_case", "N/A")
+        base = dcf_scenarios.get("base_case", "N/A")
+        bull = dcf_scenarios.get("bull_case", "N/A")
+        wacc_val = dcf_scenarios.get("wacc_used", "N/A")
+        parts.append(f"DCF情景：熊市{bear}，基准{base}，牛市{bull}，WACC={wacc_val}")
+
+    return "；".join(parts)

@@ -34,23 +34,23 @@ def ben_graham_agent(state: AgentState, agent_id: str = "ben_graham_agent"):
     graham_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching financial metrics")
+        progress.update_status(agent_id, ticker, "获取财务指标")
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=10, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        progress.update_status(agent_id, ticker, "收集财务报表项目")
         financial_line_items = search_line_items(ticker, ["earnings_per_share", "revenue", "net_income", "book_value_per_share", "total_assets", "total_liabilities", "current_assets", "current_liabilities", "dividends_and_other_cash_distributions", "outstanding_shares"], end_date, period="annual", limit=10, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
         # Perform sub-analyses
-        progress.update_status(agent_id, ticker, "Analyzing earnings stability")
+        progress.update_status(agent_id, ticker, "分析盈利稳定性")
         earnings_analysis = analyze_earnings_stability(metrics, financial_line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing financial strength")
+        progress.update_status(agent_id, ticker, "分析财务实力")
         strength_analysis = analyze_financial_strength(financial_line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing Graham valuation")
+        progress.update_status(agent_id, ticker, "分析格雷厄姆估值")
         valuation_analysis = analyze_valuation_graham(financial_line_items, market_cap)
 
         # Aggregate scoring
@@ -67,7 +67,7 @@ def ben_graham_agent(state: AgentState, agent_id: str = "ben_graham_agent"):
 
         analysis_data[ticker] = {"signal": signal, "score": total_score, "max_score": max_possible_score, "earnings_analysis": earnings_analysis, "strength_analysis": strength_analysis, "valuation_analysis": valuation_analysis}
 
-        progress.update_status(agent_id, ticker, "Generating Ben Graham analysis")
+        progress.update_status(agent_id, ticker, "生成本杰明·格雷厄姆分析")
         graham_output = generate_graham_output(
             ticker=ticker,
             analysis_data=analysis_data,
@@ -77,19 +77,19 @@ def ben_graham_agent(state: AgentState, agent_id: str = "ben_graham_agent"):
 
         graham_analysis[ticker] = {"signal": graham_output.signal, "confidence": graham_output.confidence, "reasoning": graham_output.reasoning}
 
-        progress.update_status(agent_id, ticker, "Done", analysis=graham_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=graham_output.reasoning)
 
     # Wrap results in a single message for the chain
     message = HumanMessage(content=json.dumps(graham_analysis), name=agent_id)
 
     # Optionally display reasoning
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(graham_analysis, "Ben Graham Agent")
+        show_agent_reasoning(graham_analysis, "本杰明·格雷厄姆智能体")
 
     # Store signals in the overall state
     state["data"]["analyst_signals"][agent_id] = graham_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {"messages": [message], "data": state["data"]}
 
@@ -105,7 +105,7 @@ def analyze_earnings_stability(metrics: list, financial_line_items: list) -> dic
     details = []
 
     if not metrics or not financial_line_items:
-        return {"score": score, "details": "Insufficient data for earnings stability analysis"}
+        return {"score": score, "details": "数据不足以进行盈利稳定性分析"}
 
     eps_vals = []
     for item in financial_line_items:
@@ -113,7 +113,7 @@ def analyze_earnings_stability(metrics: list, financial_line_items: list) -> dic
             eps_vals.append(item.earnings_per_share)
 
     if len(eps_vals) < 2:
-        details.append("Not enough multi-year EPS data.")
+        details.append("多年每股收益数据不足。")
         return {"score": score, "details": "; ".join(details)}
 
     # 1. Consistently positive EPS
@@ -121,19 +121,19 @@ def analyze_earnings_stability(metrics: list, financial_line_items: list) -> dic
     total_eps_years = len(eps_vals)
     if positive_eps_years == total_eps_years:
         score += 3
-        details.append("EPS was positive in all available periods.")
+        details.append("所有可用期间每股收益均为正。")
     elif positive_eps_years >= (total_eps_years * 0.8):
         score += 2
-        details.append("EPS was positive in most periods.")
+        details.append("大多数期间每股收益为正。")
     else:
-        details.append("EPS was negative in multiple periods.")
+        details.append("多个期间每股收益为负。")
 
     # 2. EPS growth from earliest to latest
     if eps_vals[0] > eps_vals[-1]:
         score += 1
-        details.append("EPS grew from earliest to latest period.")
+        details.append("每股收益从最早到最新期间有所增长。")
     else:
-        details.append("EPS did not grow from earliest to latest period.")
+        details.append("每股收益从最早到最新期间未增长。")
 
     return {"score": score, "details": "; ".join(details)}
 
@@ -147,7 +147,7 @@ def analyze_financial_strength(financial_line_items: list) -> dict:
     details = []
 
     if not financial_line_items:
-        return {"score": score, "details": "No data for financial strength analysis"}
+        return {"score": score, "details": "无数据用于财务实力分析"}
 
     latest_item = financial_line_items[0]
     total_assets = latest_item.total_assets or 0
@@ -160,28 +160,28 @@ def analyze_financial_strength(financial_line_items: list) -> dict:
         current_ratio = current_assets / current_liabilities
         if current_ratio >= 2.0:
             score += 2
-            details.append(f"Current ratio = {current_ratio:.2f} (>=2.0: solid).")
+            details.append(f"流动比率 = {current_ratio:.2f} (>=2.0: 稳健)。")
         elif current_ratio >= 1.5:
             score += 1
-            details.append(f"Current ratio = {current_ratio:.2f} (moderately strong).")
+            details.append(f"流动比率 = {current_ratio:.2f} (中等偏强)。")
         else:
-            details.append(f"Current ratio = {current_ratio:.2f} (<1.5: weaker liquidity).")
+            details.append(f"流动比率 = {current_ratio:.2f} (<1.5: 流动性较弱)。")
     else:
-        details.append("Cannot compute current ratio (missing or zero current_liabilities).")
+        details.append("无法计算流动比率 (缺少流动负债或为零)。")
 
     # 2. Debt vs. Assets
     if total_assets > 0:
         debt_ratio = total_liabilities / total_assets
         if debt_ratio < 0.5:
             score += 2
-            details.append(f"Debt ratio = {debt_ratio:.2f}, under 0.50 (conservative).")
+            details.append(f"负债率 = {debt_ratio:.2f}, 低于0.50 (保守)。")
         elif debt_ratio < 0.8:
             score += 1
-            details.append(f"Debt ratio = {debt_ratio:.2f}, somewhat high but could be acceptable.")
+            details.append(f"负债率 = {debt_ratio:.2f}, 偏高但尚可接受。")
         else:
-            details.append(f"Debt ratio = {debt_ratio:.2f}, quite high by Graham standards.")
+            details.append(f"负债率 = {debt_ratio:.2f}, 按格雷厄姆标准相当高。")
     else:
-        details.append("Cannot compute debt ratio (missing total_assets).")
+        details.append("无法计算负债率 (缺少总资产数据)。")
 
     # 3. Dividend track record
     div_periods = [item.dividends_and_other_cash_distributions for item in financial_line_items if item.dividends_and_other_cash_distributions is not None]
@@ -193,13 +193,13 @@ def analyze_financial_strength(financial_line_items: list) -> dict:
             # e.g. if at least half the periods had dividends
             if div_paid_years >= (len(div_periods) // 2 + 1):
                 score += 1
-                details.append("Company paid dividends in the majority of the reported years.")
+                details.append("公司在大多数报告年份支付了分红。")
             else:
-                details.append("Company has some dividend payments, but not most years.")
+                details.append("公司有一些分红支付，但不是大多数年份。")
         else:
-            details.append("Company did not pay dividends in these periods.")
+            details.append("公司在这些期间未支付分红。")
     else:
-        details.append("No dividend data available to assess payout consistency.")
+        details.append("无分红数据可用于评估派息一致性。")
 
     return {"score": score, "details": "; ".join(details)}
 
@@ -212,7 +212,7 @@ def analyze_valuation_graham(financial_line_items: list, market_cap: float) -> d
     3. Compare per-share price to Graham Number => margin of safety
     """
     if not financial_line_items or not market_cap or market_cap <= 0:
-        return {"score": 0, "details": "Insufficient data to perform valuation"}
+        return {"score": 0, "details": "数据不足以进行估值"}
 
     latest = financial_line_items[0]
     current_assets = latest.current_assets or 0
@@ -232,20 +232,20 @@ def analyze_valuation_graham(financial_line_items: list, market_cap: float) -> d
         net_current_asset_value_per_share = net_current_asset_value / shares_outstanding
         price_per_share = market_cap / shares_outstanding if shares_outstanding else 0
 
-        details.append(f"Net Current Asset Value = {net_current_asset_value:,.2f}")
-        details.append(f"NCAV Per Share = {net_current_asset_value_per_share:,.2f}")
-        details.append(f"Price Per Share = {price_per_share:,.2f}")
+        details.append(f"净流动资产价值 = {net_current_asset_value:,.2f}")
+        details.append(f"每股净流动资产价值 = {net_current_asset_value_per_share:,.2f}")
+        details.append(f"每股价格 = {price_per_share:,.2f}")
 
         if net_current_asset_value > market_cap:
             score += 4  # Very strong Graham signal
-            details.append("Net-Net: NCAV > Market Cap (classic Graham deep value).")
+            details.append("Net-Net: 净流动资产价值 > 市值 (经典格雷厄姆深度价值)。")
         else:
             # For partial net-net discount
             if net_current_asset_value_per_share >= (price_per_share * 0.67):
                 score += 2
-                details.append("NCAV Per Share >= 2/3 of Price Per Share (moderate net-net discount).")
+                details.append("每股净流动资产价值 >= 每股价格的2/3 (中等净流动资产折价)。")
     else:
-        details.append("NCAV not exceeding market cap or insufficient data for net-net approach.")
+        details.append("净流动资产价值未超过市值或数据不足以进行净流动资产分析。")
 
     # 2. Graham Number
     #   GrahamNumber = sqrt(22.5 * EPS * BVPS).
@@ -254,26 +254,26 @@ def analyze_valuation_graham(financial_line_items: list, market_cap: float) -> d
     graham_number = None
     if eps > 0 and book_value_ps > 0:
         graham_number = math.sqrt(22.5 * eps * book_value_ps)
-        details.append(f"Graham Number = {graham_number:.2f}")
+        details.append(f"格雷厄姆数 = {graham_number:.2f}")
     else:
-        details.append("Unable to compute Graham Number (EPS or Book Value missing/<=0).")
+        details.append("无法计算格雷厄姆数 (每股收益或每股账面价值缺失/<=0)。")
 
     # 3. Margin of Safety relative to Graham Number
     if graham_number and shares_outstanding > 0:
         current_price = market_cap / shares_outstanding
         if current_price > 0:
             margin_of_safety = (graham_number - current_price) / current_price
-            details.append(f"Margin of Safety (Graham Number) = {margin_of_safety:.2%}")
+            details.append(f"安全边际 (格雷厄姆数) = {margin_of_safety:.2%}")
             if margin_of_safety > 0.5:
                 score += 3
-                details.append("Price is well below Graham Number (>=50% margin).")
+                details.append("价格远低于格雷厄姆数 (>=50%安全边际)。")
             elif margin_of_safety > 0.2:
                 score += 1
-                details.append("Some margin of safety relative to Graham Number.")
+                details.append("相对格雷厄姆数有一定安全边际。")
             else:
-                details.append("Price close to or above Graham Number, low margin of safety.")
+                details.append("价格接近或高于格雷厄姆数，安全边际低。")
         else:
-            details.append("Current price is zero or invalid; can't compute margin of safety.")
+            details.append("当前价格为零或无效；无法计算安全边际。")
     # else: already appended details for missing graham_number
 
     return {"score": score, "details": "; ".join(details)}
@@ -295,35 +295,35 @@ def generate_graham_output(
         [
             (
                 "system",
-                """You are a Benjamin Graham AI agent, making investment decisions using his principles:
-            1. Insist on a margin of safety by buying below intrinsic value (e.g., using Graham Number, net-net).
-            2. Emphasize the company's financial strength (low leverage, ample current assets).
-            3. Prefer stable earnings over multiple years.
-            4. Consider dividend record for extra safety.
-            5. Avoid speculative or high-growth assumptions; focus on proven metrics.
-            
-            When providing your reasoning, be thorough and specific by:
-            1. Explaining the key valuation metrics that influenced your decision the most (Graham Number, NCAV, P/E, etc.)
-            2. Highlighting the specific financial strength indicators (current ratio, debt levels, etc.)
-            3. Referencing the stability or instability of earnings over time
-            4. Providing quantitative evidence with precise numbers
-            5. Comparing current metrics to Graham's specific thresholds (e.g., "Current ratio of 2.5 exceeds Graham's minimum of 2.0")
-            6. Using Benjamin Graham's conservative, analytical voice and style in your explanation
-            
-            For example, if bullish: "The stock trades at a 35% discount to net current asset value, providing an ample margin of safety. The current ratio of 2.5 and debt-to-equity of 0.3 indicate strong financial position..."
-            For example, if bearish: "Despite consistent earnings, the current price of $50 exceeds our calculated Graham Number of $35, offering no margin of safety. Additionally, the current ratio of only 1.2 falls below Graham's preferred 2.0 threshold..."
-                        
-            Return a rational recommendation: bullish, bearish, or neutral, with a confidence level (0-100) and thorough reasoning.
+                """你是本杰明·格雷厄姆AI智能体，使用他的投资原则进行决策:
+            1. 坚持安全边际，以低于内在价值的价格买入 (如使用格雷厄姆数、净流动资产)。
+            2. 重视公司的财务实力 (低杠杆、充足的流动资产)。
+            3. 偏好多年稳定盈利。
+            4. 考虑分红记录作为额外安全保障。
+            5. 避免投机性或高增长假设；关注经过验证的指标。
+
+            在提供推理时，要详尽具体:
+            1. 解释对你决策影响最大的关键估值指标 (格雷厄姆数、净流动资产价值、市盈率等)
+            2. 突出具体的财务实力指标 (流动比率、债务水平等)
+            3. 引用一段时间内盈利的稳定性或不稳定性
+            4. 提供带有精确数字的量化证据
+            5. 将当前指标与格雷厄姆的具体门槛进行比较 (例如 "流动比率2.5超过了格雷厄姆最低标准2.0")
+            6. 使用本杰明·格雷厄姆保守、分析性的语调和风格
+
+            例如，如果看涨: "该股票以净流动资产价值35%的折价交易，提供了充足的安全边际。流动比率2.5和债务股本比0.3表明财务状况强劲..."
+            例如，如果看跌: "尽管盈利持续，当前价格50美元超过了我们计算的格雷厄姆数35美元，没有提供安全边际。此外，仅1.2的流动比率低于格雷厄姆偏好的2.0门槛..."
+
+            用中文输出推理。返回理性的建议: bullish, bearish, 或 neutral，附带置信度 (0-100) 和详尽的推理。
             """,
             ),
             (
                 "human",
-                """Based on the following analysis, create a Graham-style investment signal:
+                """根据以下分析，创建格雷厄姆风格的投资信号。用中文回答。
 
-            Analysis Data for {ticker}:
+            {ticker} 的分析数据:
             {analysis_data}
 
-            Return JSON exactly in this format:
+            严格按以下JSON格式返回:
             {{
               "signal": "bullish" or "bearish" or "neutral",
               "confidence": float (0-100),
@@ -337,7 +337,7 @@ def generate_graham_output(
     prompt = template.invoke({"analysis_data": json.dumps(analysis_data, indent=2), "ticker": ticker})
 
     def create_default_ben_graham_signal():
-        return BenGrahamSignal(signal="neutral", confidence=0.0, reasoning="Error in generating analysis; defaulting to neutral.")
+        return BenGrahamSignal(signal="neutral", confidence=0.0, reasoning="分析生成出错；默认中性。")
 
     return call_llm(
         prompt=prompt,

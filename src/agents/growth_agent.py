@@ -26,7 +26,7 @@ def growth_analyst_agent(state: AgentState, agent_id: str = "growth_analyst_agen
     growth_analysis: dict[str, dict] = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching financial data")
+        progress.update_status(agent_id, ticker, "获取财务数据")
 
         # --- Historical financial metrics ---
         financial_metrics = get_financial_metrics(
@@ -37,7 +37,7 @@ def growth_analyst_agent(state: AgentState, agent_id: str = "growth_analyst_agen
             api_key=api_key,
         )
         if not financial_metrics or len(financial_metrics) < 4:
-            progress.update_status(agent_id, ticker, "Failed: Not enough financial metrics")
+            progress.update_status(agent_id, ticker, "失败：财务指标不足")
             continue
         
         most_recent_metrics = financial_metrics[0]
@@ -112,22 +112,24 @@ def growth_analyst_agent(state: AgentState, agent_id: str = "growth_analyst_agen
             }
         }
 
+        reasoning_text = _build_reasoning_text(reasoning)
         growth_analysis[ticker] = {
             "signal": signal,
             "confidence": confidence,
-            "reasoning": reasoning,
+            "reasoning": reasoning_text,
+            "reasoning_data": reasoning,
         }
-        progress.update_status(agent_id, ticker, "Done", analysis=json.dumps(reasoning, indent=4))
+        progress.update_status(agent_id, ticker, "完成", analysis=reasoning_text)
 
     # ---- Emit message (for LLM tool chain) ----
     msg = HumanMessage(content=json.dumps(growth_analysis), name=agent_id)
     if state["metadata"].get("show_reasoning"):
-        show_agent_reasoning(growth_analysis, "Growth Analysis Agent")
+        show_agent_reasoning(growth_analysis, "增长分析师")
 
     # Add the signal to the analyst_signals list
     state["data"]["analyst_signals"][agent_id] = growth_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
     
     return {"messages": [msg], "data": data}
 
@@ -309,30 +311,103 @@ def analyze_insider_conviction(trades: list) -> dict:
 
 def check_financial_health(metrics) -> dict:
     """Checks the company's financial health."""
-    
+
     debt_to_equity = metrics.debt_to_equity
     current_ratio = metrics.current_ratio
-    
+
     score = 1.0
-    
+
     # Debt to Equity
     if debt_to_equity is not None:
         if debt_to_equity > 1.5:
             score -= 0.5
         elif debt_to_equity > 0.8:
             score -= 0.2
-            
+
     # Current Ratio
     if current_ratio is not None:
         if current_ratio < 1.0:
             score -= 0.5
         elif current_ratio < 1.5:
             score -= 0.2
-            
+
     score = max(score, 0.0)
-    
+
     return {
         "score": score,
         "debt_to_equity": debt_to_equity,
         "current_ratio": current_ratio
     }
+
+
+def _fmt_pct(val) -> str:
+    """Format a value as percentage string, handling None."""
+    if val is None:
+        return "N/A"
+    return f"{val * 100:.1f}%"
+
+
+def _build_reasoning_text(reasoning: dict) -> str:
+    """Convert the structured growth reasoning dict to a concise Chinese text summary."""
+
+    parts = []
+
+    # -- historical_growth --
+    hg = reasoning.get("historical_growth", {})
+    hg_score = hg.get("score", 0)
+    rev_g = hg.get("revenue_growth")
+    eps_g = hg.get("eps_growth")
+    details = f"评分{hg_score:.1f}"
+    if rev_g is not None:
+        details += f"（收入增长{_fmt_pct(rev_g)}"
+        if eps_g is not None:
+            details += f"，EPS增长{_fmt_pct(eps_g)}"
+        details += "）"
+    parts.append(f"历史增长：{details}")
+
+    # -- growth_valuation --
+    gv = reasoning.get("growth_valuation", {})
+    gv_score = gv.get("score", 0)
+    peg = gv.get("peg_ratio")
+    parts.append(f"增长估值：评分{gv_score:.1f}（PEG={peg if peg is not None else 'N/A'}）")
+
+    # -- margin_expansion --
+    me = reasoning.get("margin_expansion", {})
+    me_score = me.get("score", 0)
+    gm = me.get("gross_margin")
+    details = f"评分{me_score:.1f}"
+    if gm is not None:
+        details += f"（毛利率{_fmt_pct(gm)}）"
+    parts.append(f"利润率扩张：{details}")
+
+    # -- insider_conviction --
+    ic = reasoning.get("insider_conviction", {})
+    ic_score = ic.get("score", 0)
+    parts.append(f"内部人信心：评分{ic_score:.1f}")
+
+    # -- financial_health --
+    fh = reasoning.get("financial_health", {})
+    fh_score = fh.get("score", 0)
+    de = fh.get("debt_to_equity")
+    cr = fh.get("current_ratio")
+    details = f"评分{fh_score:.1f}"
+    if de is not None or cr is not None:
+        details += "（"
+        if de is not None:
+            details += f"D/E={de:.2f}"
+        if de is not None and cr is not None:
+            details += "，"
+        if cr is not None:
+            details += f"流动比率{cr:.2f}"
+        details += "）"
+    parts.append(f"财务健康：{details}")
+
+    # -- final_analysis --
+    fa = reasoning.get("final_analysis", {})
+    sig = fa.get("signal", "")
+    conf = fa.get("confidence", 0)
+    ws = fa.get("weighted_score", 0)
+    sig_cn = {"bullish": "看涨", "bearish": "看跌", "neutral": "中性"}.get(sig, sig)
+    parts.append(f"综合信号：{sig_cn}（置信度{conf}%，加权评分{ws:.2f}）")
+
+    return "；".join(parts)

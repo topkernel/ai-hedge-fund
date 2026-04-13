@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "ai-hedge-fund"
 version = "1.0.0"
-description = "An AI-powered hedge fund that uses multiple agents to make trading decisions"
+description = "基于 AI 的对冲基金系统，使用多个智能体协同做出交易决策"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [
@@ -36,6 +36,7 @@ sqlalchemy = "^2.0.22"
 alembic = "^1.12.0"
 langchain-gigachat = "^0.3.12"
 langchain-xai = "^0.2.5"
+akshare = "^1.14"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

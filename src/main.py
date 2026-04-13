@@ -1,6 +1,7 @@
 import sys
-
 from dotenv import load_dotenv
+load_dotenv()  # Load .env BEFORE importing other modules so DATA_SOURCE is set
+
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, StateGraph
 from colorama import Fore, Style, init
@@ -21,9 +22,6 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import json
 
-# Load environment variables from .env file
-load_dotenv()
-
 init(autoreset=True)
 
 
@@ -32,13 +30,13 @@ def parse_hedge_fund_response(response):
     try:
         return json.loads(response)
     except json.JSONDecodeError as e:
-        print(f"JSON decoding error: {e}\nResponse: {repr(response)}")
+        print(f"JSON 解码错误: {e}\n响应内容: {repr(response)}")
         return None
     except TypeError as e:
-        print(f"Invalid response type (expected string, got {type(response).__name__}): {e}")
+        print(f"无效的响应类型（期望字符串，收到 {type(response).__name__}）: {e}")
         return None
     except Exception as e:
-        print(f"Unexpected error while parsing response: {e}\nResponse: {repr(response)}")
+        print(f"解析响应时发生意外错误: {e}\n响应内容: {repr(response)}")
         return None
 
 
@@ -65,7 +63,7 @@ def run_hedge_fund(
             {
                 "messages": [
                     HumanMessage(
-                        content="Make trading decisions based on the provided data.",
+                        content="根据提供的数据做出交易决策。",
                     )
                 ],
                 "data": {
@@ -132,7 +130,7 @@ def create_workflow(selected_analysts=None):
 
 if __name__ == "__main__":
     inputs = parse_cli_inputs(
-        description="Run the hedge fund trading system",
+        description="运行 AI 对冲基金交易系统",
         require_tickers=True,
         default_months_back=None,
         include_graph_flag=True,

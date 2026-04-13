@@ -42,10 +42,10 @@ def stanley_druckenmiller_agent(state: AgentState, agent_id: str = "stanley_druc
     druck_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching financial metrics")
+        progress.update_status(agent_id, ticker, "获取财务指标")
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        progress.update_status(agent_id, ticker, "获取财务科目")
         # Include relevant line items for Stan Druckenmiller's approach:
         #   - Growth & momentum: revenue, EPS, operating_income, ...
         #   - Valuation: net_income, free_cash_flow, ebit, ebitda
@@ -75,31 +75,31 @@ def stanley_druckenmiller_agent(state: AgentState, agent_id: str = "stanley_druc
             api_key=api_key,
         )
 
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Fetching insider trades")
+        progress.update_status(agent_id, ticker, "获取内部人交易")
         insider_trades = get_insider_trades(ticker, end_date, limit=50, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Fetching company news")
+        progress.update_status(agent_id, ticker, "获取公司新闻")
         company_news = get_company_news(ticker, end_date, limit=50, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Fetching recent price data for momentum")
+        progress.update_status(agent_id, ticker, "获取近期价格数据以分析动量")
         prices = get_prices(ticker, start_date=start_date, end_date=end_date, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Analyzing growth & momentum")
+        progress.update_status(agent_id, ticker, "分析增长与动量")
         growth_momentum_analysis = analyze_growth_and_momentum(financial_line_items, prices)
 
-        progress.update_status(agent_id, ticker, "Analyzing sentiment")
+        progress.update_status(agent_id, ticker, "分析市场情绪")
         sentiment_analysis = analyze_sentiment(company_news)
 
-        progress.update_status(agent_id, ticker, "Analyzing insider activity")
+        progress.update_status(agent_id, ticker, "分析内部人活动")
         insider_activity = analyze_insider_activity(insider_trades)
 
-        progress.update_status(agent_id, ticker, "Analyzing risk-reward")
+        progress.update_status(agent_id, ticker, "分析风险收益")
         risk_reward_analysis = analyze_risk_reward(financial_line_items, prices)
 
-        progress.update_status(agent_id, ticker, "Performing Druckenmiller-style valuation")
+        progress.update_status(agent_id, ticker, "进行德鲁肯米勒式估值")
         valuation_analysis = analyze_druckenmiller_valuation(financial_line_items, market_cap)
 
         # Combine partial scores with weights typical for Druckenmiller:
@@ -134,7 +134,7 @@ def stanley_druckenmiller_agent(state: AgentState, agent_id: str = "stanley_druc
             "valuation_analysis": valuation_analysis,
         }
 
-        progress.update_status(agent_id, ticker, "Generating Stanley Druckenmiller analysis")
+        progress.update_status(agent_id, ticker, "生成德鲁肯米勒分析")
         druck_output = generate_druckenmiller_output(
             ticker=ticker,
             analysis_data=analysis_data,
@@ -148,17 +148,17 @@ def stanley_druckenmiller_agent(state: AgentState, agent_id: str = "stanley_druc
             "reasoning": druck_output.reasoning,
         }
 
-        progress.update_status(agent_id, ticker, "Done", analysis=druck_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=druck_output.reasoning)
 
-    # Wrap results in a single message
+    # 将结果封装为单条消息
     message = HumanMessage(content=json.dumps(druck_analysis), name=agent_id)
 
     if state["metadata"].get("show_reasoning"):
-        show_agent_reasoning(druck_analysis, "Stanley Druckenmiller Agent")
+        show_agent_reasoning(druck_analysis, "斯坦利·德鲁肯米勒智能体")
 
     state["data"]["analyst_signals"][agent_id] = druck_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
     
     return {"messages": [message], "data": state["data"]}
 
@@ -171,7 +171,7 @@ def analyze_growth_and_momentum(financial_line_items: list, prices: list) -> dic
       - Price Momentum
     """
     if not financial_line_items or len(financial_line_items) < 2:
-        return {"score": 0, "details": "Insufficient financial data for growth analysis"}
+        return {"score": 0, "details": "增长分析财务数据不足"}
 
     details = []
     raw_score = 0  # We'll sum up a maximum of 9 raw points, then scale to 0–10
@@ -187,21 +187,21 @@ def analyze_growth_and_momentum(financial_line_items: list, prices: list) -> dic
         if older_rev > 0 and latest_rev > 0:
             # CAGR formula: (ending_value/beginning_value)^(1/years) - 1
             rev_growth = (latest_rev / older_rev) ** (1 / num_years) - 1
-            if rev_growth > 0.08:  # 8% annualized (adjusted for CAGR)
+            if rev_growth > 0.08:  # 年化8%
                 raw_score += 3
-                details.append(f"Strong annualized revenue growth: {rev_growth:.1%}")
-            elif rev_growth > 0.04:  # 4% annualized
+                details.append(f"强劲的年化收入增长：{rev_growth:.1%}")
+            elif rev_growth > 0.04:  # 年化4%
                 raw_score += 2
-                details.append(f"Moderate annualized revenue growth: {rev_growth:.1%}")
-            elif rev_growth > 0.01:  # 1% annualized
+                details.append(f"中等的年化收入增长：{rev_growth:.1%}")
+            elif rev_growth > 0.01:  # 年化1%
                 raw_score += 1
-                details.append(f"Slight annualized revenue growth: {rev_growth:.1%}")
+                details.append(f"轻微的年化收入增长：{rev_growth:.1%}")
             else:
-                details.append(f"Minimal/negative revenue growth: {rev_growth:.1%}")
+                details.append(f"收入增长极低或为负：{rev_growth:.1%}")
         else:
-            details.append("Older revenue is zero/negative; can't compute revenue growth.")
+            details.append("早期收入为零或为负；无法计算收入增长。")
     else:
-        details.append("Not enough revenue data points for growth calculation.")
+        details.append("收入数据点不足以计算增长。")
 
     #
     # 2. EPS Growth (annualized CAGR)
@@ -215,21 +215,21 @@ def analyze_growth_and_momentum(financial_line_items: list, prices: list) -> dic
         if older_eps > 0 and latest_eps > 0:
             # CAGR formula for EPS
             eps_growth = (latest_eps / older_eps) ** (1 / num_years) - 1
-            if eps_growth > 0.08:  # 8% annualized (adjusted for CAGR)
+            if eps_growth > 0.08:  # 年化8%
                 raw_score += 3
-                details.append(f"Strong annualized EPS growth: {eps_growth:.1%}")
-            elif eps_growth > 0.04:  # 4% annualized
+                details.append(f"强劲的年化每股收益增长：{eps_growth:.1%}")
+            elif eps_growth > 0.04:  # 年化4%
                 raw_score += 2
-                details.append(f"Moderate annualized EPS growth: {eps_growth:.1%}")
-            elif eps_growth > 0.01:  # 1% annualized
+                details.append(f"中等的年化每股收益增长：{eps_growth:.1%}")
+            elif eps_growth > 0.01:  # 年化1%
                 raw_score += 1
-                details.append(f"Slight annualized EPS growth: {eps_growth:.1%}")
+                details.append(f"轻微的年化每股收益增长：{eps_growth:.1%}")
             else:
-                details.append(f"Minimal/negative annualized EPS growth: {eps_growth:.1%}")
+                details.append(f"每股收益增长极低或为负：{eps_growth:.1%}")
         else:
-            details.append("Older EPS is near zero; skipping EPS growth calculation.")
+            details.append("早期每股收益接近零；跳过每股收益增长计算。")
     else:
-        details.append("Not enough EPS data points for growth calculation.")
+        details.append("每股收益数据点不足以计算增长。")
 
     #
     # 3. Price Momentum
@@ -245,21 +245,21 @@ def analyze_growth_and_momentum(financial_line_items: list, prices: list) -> dic
                 pct_change = (end_price - start_price) / start_price
                 if pct_change > 0.50:
                     raw_score += 3
-                    details.append(f"Very strong price momentum: {pct_change:.1%}")
+                    details.append(f"非常强劲的价格动量：{pct_change:.1%}")
                 elif pct_change > 0.20:
                     raw_score += 2
-                    details.append(f"Moderate price momentum: {pct_change:.1%}")
+                    details.append(f"中等的价格动量：{pct_change:.1%}")
                 elif pct_change > 0:
                     raw_score += 1
-                    details.append(f"Slight positive momentum: {pct_change:.1%}")
+                    details.append(f"轻微的正向动量：{pct_change:.1%}")
                 else:
-                    details.append(f"Negative price momentum: {pct_change:.1%}")
+                    details.append(f"负向价格动量：{pct_change:.1%}")
             else:
-                details.append("Invalid start price (<= 0); can't compute momentum.")
+                details.append("起始价格无效（<=0）；无法计算动量。")
         else:
-            details.append("Insufficient price data for momentum calculation.")
+            details.append("价格数据不足以计算动量。")
     else:
-        details.append("Not enough recent price data for momentum analysis.")
+        details.append("近期价格数据不足以进行动量分析。")
 
     # We assigned up to 3 points each for:
     #   revenue growth, eps growth, momentum
@@ -282,7 +282,7 @@ def analyze_insider_activity(insider_trades: list) -> dict:
     details = []
 
     if not insider_trades:
-        details.append("No insider trades data; defaulting to neutral")
+        details.append("无内部人交易数据；默认为中性")
         return {"score": score, "details": "; ".join(details)}
 
     buys, sells = 0, 0
@@ -297,22 +297,22 @@ def analyze_insider_activity(insider_trades: list) -> dict:
 
     total = buys + sells
     if total == 0:
-        details.append("No buy/sell transactions found; neutral")
+        details.append("未发现买卖交易；中性")
         return {"score": score, "details": "; ".join(details)}
 
     buy_ratio = buys / total
     if buy_ratio > 0.7:
-        # Heavy buying => +3 points from the neutral 5 => 8
+        # 大量买入 => 从中性的5加3分 => 8
         score = 8
-        details.append(f"Heavy insider buying: {buys} buys vs. {sells} sells")
+        details.append(f"大量内部人买入：{buys} 次买入 vs. {sells} 次卖出")
     elif buy_ratio > 0.4:
-        # Moderate buying => +1 => 6
+        # 中等买入 => +1 => 6
         score = 6
-        details.append(f"Moderate insider buying: {buys} buys vs. {sells} sells")
+        details.append(f"中等内部人买入：{buys} 次买入 vs. {sells} 次卖出")
     else:
-        # Low insider buying => -1 => 4
+        # 较少内部人买入 => -1 => 4
         score = 4
-        details.append(f"Mostly insider selling: {buys} buys vs. {sells} sells")
+        details.append(f"以内部人卖出为主：{buys} 次买入 vs. {sells} 次卖出")
 
     return {"score": score, "details": "; ".join(details)}
 
@@ -322,7 +322,7 @@ def analyze_sentiment(news_items: list) -> dict:
     Basic news sentiment: negative keyword check vs. overall volume.
     """
     if not news_items:
-        return {"score": 5, "details": "No news data; defaulting to neutral sentiment"}
+        return {"score": 5, "details": "无新闻数据；默认为中性情绪"}
 
     negative_keywords = ["lawsuit", "fraud", "negative", "downturn", "decline", "investigation", "recall"]
     negative_count = 0
@@ -333,17 +333,17 @@ def analyze_sentiment(news_items: list) -> dict:
 
     details = []
     if negative_count > len(news_items) * 0.3:
-        # More than 30% negative => somewhat bearish => 3/10
+        # 超过30%为负面 => 偏看跌 => 3/10
         score = 3
-        details.append(f"High proportion of negative headlines: {negative_count}/{len(news_items)}")
+        details.append(f"负面头条比例较高：{negative_count}/{len(news_items)}")
     elif negative_count > 0:
-        # Some negativity => 6/10
+        # 有一些负面 => 6/10
         score = 6
-        details.append(f"Some negative headlines: {negative_count}/{len(news_items)}")
+        details.append(f"存在部分负面头条：{negative_count}/{len(news_items)}")
     else:
-        # Mostly positive => 8/10
+        # 以正面为主 => 8/10
         score = 8
-        details.append("Mostly positive/neutral headlines")
+        details.append("以正面/中性头条为主")
 
     return {"score": score, "details": "; ".join(details)}
 
@@ -356,7 +356,7 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
     Aims for strong upside with contained downside.
     """
     if not financial_line_items or not prices:
-        return {"score": 0, "details": "Insufficient data for risk-reward analysis"}
+        return {"score": 0, "details": "风险收益分析数据不足"}
 
     details = []
     raw_score = 0  # We'll accumulate up to 6 raw points, then scale to 0-10
@@ -373,17 +373,17 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
         de_ratio = recent_debt / recent_equity
         if de_ratio < 0.3:
             raw_score += 3
-            details.append(f"Low debt-to-equity: {de_ratio:.2f}")
+            details.append(f"低负债权益比：{de_ratio:.2f}")
         elif de_ratio < 0.7:
             raw_score += 2
-            details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
+            details.append(f"中等负债权益比：{de_ratio:.2f}")
         elif de_ratio < 1.5:
             raw_score += 1
-            details.append(f"Somewhat high debt-to-equity: {de_ratio:.2f}")
+            details.append(f"偏高负债权益比：{de_ratio:.2f}")
         else:
-            details.append(f"High debt-to-equity: {de_ratio:.2f}")
+            details.append(f"高负债权益比：{de_ratio:.2f}")
     else:
-        details.append("No consistent debt/equity data available.")
+        details.append("无可用的负债/权益数据。")
 
     #
     # 2. Price Volatility
@@ -401,21 +401,21 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
                 stdev = statistics.pstdev(daily_returns)  # population stdev
                 if stdev < 0.01:
                     raw_score += 3
-                    details.append(f"Low volatility: daily returns stdev {stdev:.2%}")
+                    details.append(f"低波动率：日收益率标准差 {stdev:.2%}")
                 elif stdev < 0.02:
                     raw_score += 2
-                    details.append(f"Moderate volatility: daily returns stdev {stdev:.2%}")
+                    details.append(f"中等波动率：日收益率标准差 {stdev:.2%}")
                 elif stdev < 0.04:
                     raw_score += 1
-                    details.append(f"High volatility: daily returns stdev {stdev:.2%}")
+                    details.append(f"高波动率：日收益率标准差 {stdev:.2%}")
                 else:
-                    details.append(f"Very high volatility: daily returns stdev {stdev:.2%}")
+                    details.append(f"极高波动率：日收益率标准差 {stdev:.2%}")
             else:
-                details.append("Insufficient daily returns data for volatility calc.")
+                details.append("日收益率数据不足以计算波动率。")
         else:
-            details.append("Not enough close-price data points for volatility analysis.")
+            details.append("收盘价数据点不足以进行波动率分析。")
     else:
-        details.append("Not enough price data for volatility analysis.")
+        details.append("价格数据不足以进行波动率分析。")
 
     # raw_score out of 6 => scale to 0–10
     final_score = min(10, (raw_score / 6) * 10)
@@ -432,7 +432,7 @@ def analyze_druckenmiller_valuation(financial_line_items: list, market_cap: floa
     Each can yield up to 2 points => max 8 raw points => scale to 0–10.
     """
     if not financial_line_items or market_cap is None:
-        return {"score": 0, "details": "Insufficient data to perform valuation"}
+        return {"score": 0, "details": "估值数据不足"}
 
     details = []
     raw_score = 0
@@ -458,15 +458,15 @@ def analyze_druckenmiller_valuation(financial_line_items: list, market_cap: floa
         pe_points = 0
         if pe < 15:
             pe_points = 2
-            details.append(f"Attractive P/E: {pe:.2f}")
+            details.append(f"有吸引力的市盈率：{pe:.2f}")
         elif pe < 25:
             pe_points = 1
-            details.append(f"Fair P/E: {pe:.2f}")
+            details.append(f"合理的市盈率：{pe:.2f}")
         else:
-            details.append(f"High or Very high P/E: {pe:.2f}")
+            details.append(f"偏高或极高的市盈率：{pe:.2f}")
         raw_score += pe_points
     else:
-        details.append("No positive net income for P/E calculation")
+        details.append("无正净利润用于计算市盈率")
 
     # 2) P/FCF
     recent_fcf = fcf_values[0] if fcf_values else None
@@ -475,15 +475,15 @@ def analyze_druckenmiller_valuation(financial_line_items: list, market_cap: floa
         pfcf_points = 0
         if pfcf < 15:
             pfcf_points = 2
-            details.append(f"Attractive P/FCF: {pfcf:.2f}")
+            details.append(f"有吸引力的市现率：{pfcf:.2f}")
         elif pfcf < 25:
             pfcf_points = 1
-            details.append(f"Fair P/FCF: {pfcf:.2f}")
+            details.append(f"合理的市现率：{pfcf:.2f}")
         else:
-            details.append(f"High/Very high P/FCF: {pfcf:.2f}")
+            details.append(f"偏高或极高的市现率：{pfcf:.2f}")
         raw_score += pfcf_points
     else:
-        details.append("No positive free cash flow for P/FCF calculation")
+        details.append("无正自由现金流用于计算市现率")
 
     # 3) EV/EBIT
     recent_ebit = ebit_values[0] if ebit_values else None
@@ -492,15 +492,15 @@ def analyze_druckenmiller_valuation(financial_line_items: list, market_cap: floa
         ev_ebit_points = 0
         if ev_ebit < 15:
             ev_ebit_points = 2
-            details.append(f"Attractive EV/EBIT: {ev_ebit:.2f}")
+            details.append(f"有吸引力的EV/EBIT：{ev_ebit:.2f}")
         elif ev_ebit < 25:
             ev_ebit_points = 1
-            details.append(f"Fair EV/EBIT: {ev_ebit:.2f}")
+            details.append(f"合理的EV/EBIT：{ev_ebit:.2f}")
         else:
-            details.append(f"High EV/EBIT: {ev_ebit:.2f}")
+            details.append(f"偏高的EV/EBIT：{ev_ebit:.2f}")
         raw_score += ev_ebit_points
     else:
-        details.append("No valid EV/EBIT because EV <= 0 or EBIT <= 0")
+        details.append("EV <= 0 或 EBIT <= 0，无法计算EV/EBIT")
 
     # 4) EV/EBITDA
     recent_ebitda = ebitda_values[0] if ebitda_values else None
@@ -509,15 +509,15 @@ def analyze_druckenmiller_valuation(financial_line_items: list, market_cap: floa
         ev_ebitda_points = 0
         if ev_ebitda < 10:
             ev_ebitda_points = 2
-            details.append(f"Attractive EV/EBITDA: {ev_ebitda:.2f}")
+            details.append(f"有吸引力的EV/EBITDA：{ev_ebitda:.2f}")
         elif ev_ebitda < 18:
             ev_ebitda_points = 1
-            details.append(f"Fair EV/EBITDA: {ev_ebitda:.2f}")
+            details.append(f"合理的EV/EBITDA：{ev_ebitda:.2f}")
         else:
-            details.append(f"High EV/EBITDA: {ev_ebitda:.2f}")
+            details.append(f"偏高的EV/EBITDA：{ev_ebitda:.2f}")
         raw_score += ev_ebitda_points
     else:
-        details.append("No valid EV/EBITDA because EV <= 0 or EBITDA <= 0")
+        details.append("EV <= 0 或 EBITDA <= 0，无法计算EV/EBITDA")
 
     # We have up to 2 points for each of the 4 metrics => 8 raw points max
     # Scale raw_score to 0–10
@@ -539,45 +539,47 @@ def generate_druckenmiller_output(
         [
             (
               "system",
-              """You are a Stanley Druckenmiller AI agent, making investment decisions using his principles:
-            
-              1. Seek asymmetric risk-reward opportunities (large upside, limited downside).
-              2. Emphasize growth, momentum, and market sentiment.
-              3. Preserve capital by avoiding major drawdowns.
-              4. Willing to pay higher valuations for true growth leaders.
-              5. Be aggressive when conviction is high.
-              6. Cut losses quickly if the thesis changes.
-                            
-              Rules:
-              - Reward companies showing strong revenue/earnings growth and positive stock momentum.
-              - Evaluate sentiment and insider activity as supportive or contradictory signals.
-              - Watch out for high leverage or extreme volatility that threatens capital.
-              - Output a JSON object with signal, confidence, and a reasoning string.
-              
-              When providing your reasoning, be thorough and specific by:
-              1. Explaining the growth and momentum metrics that most influenced your decision
-              2. Highlighting the risk-reward profile with specific numerical evidence
-              3. Discussing market sentiment and catalysts that could drive price action
-              4. Addressing both upside potential and downside risks
-              5. Providing specific valuation context relative to growth prospects
-              6. Using Stanley Druckenmiller's decisive, momentum-focused, and conviction-driven voice
-              
-              For example, if bullish: "The company shows exceptional momentum with revenue accelerating from 22% to 35% YoY and the stock up 28% over the past three months. Risk-reward is highly asymmetric with 70% upside potential based on FCF multiple expansion and only 15% downside risk given the strong balance sheet with 3x cash-to-debt. Insider buying and positive market sentiment provide additional tailwinds..."
-              For example, if bearish: "Despite recent stock momentum, revenue growth has decelerated from 30% to 12% YoY, and operating margins are contracting. The risk-reward proposition is unfavorable with limited 10% upside potential against 40% downside risk. The competitive landscape is intensifying, and insider selling suggests waning confidence. I'm seeing better opportunities elsewhere with more favorable setups..."
+              """你是斯坦利·德鲁肯米勒AI代理，使用他的投资原则做出决策：
+
+              1. 寻求非对称的风险收益机会（大幅上行，有限下行）。
+              2. 强调增长、动量和市场情绪。
+              3. 通过避免重大回撤来保全资本。
+              4. 愿意为真正的成长领军企业支付更高估值。
+              5. 在确信度高的条件下可以激进。
+              6. 如果投资逻辑改变，迅速止损。
+
+              规则：
+              - 奖励显示强劲收入/盈利增长和正向股票动量的公司。
+              - 评估情绪和内部人活动作为支持或矛盾信号。
+              - 注意高杠杆或威胁资本的极端波动率。
+              - 输出包含signal、confidence和reasoning字符串的JSON对象。
+
+              在提供推理时，请做到详尽且具体：
+              1. 解释最影响你决策的增长和动量指标
+              2. 用具体的数字证据突出风险收益特征
+              3. 讨论可能推动价格走势的市场情绪和催化剂
+              4. 同时阐述上行潜力和下行风险
+              5. 提供相对于增长前景的具体估值背景
+              6. 使用德鲁肯米勒果断、注重动量和信念驱动的语调
+
+              例如，看涨时："该公司展现出卓越的动量，收入同比增速从22%加速至35%，股价在过去三个月上涨28%。风险收益高度非对称，基于自由现金流估值倍数扩张有70%的上行潜力，而强劲的资产负债表（现金为负债的3倍）仅面临15%的下行风险。内部人买入和积极的市场情绪提供了额外的推动力..."
+              例如，看跌时："尽管近期股价有动量，但收入增长已从30%减速至12%，营业利润率正在收缩。风险收益比不利，上行潜力仅10%而下行风险达40%。竞争格局正在加剧，内部人卖出暗示信心减弱。我在其他地方看到了更好的机会..."
+
+              用中文输出推理。
               """,
             ),
             (
               "human",
-              """Based on the following analysis, create a Druckenmiller-style investment signal.
+              """根据以下分析，创建一个德鲁肯米勒风格的投资信号。
 
-              Analysis Data for {ticker}:
+              {ticker} 的分析数据：
               {analysis_data}
 
-              Return the trading signal in this JSON format:
+              请以以下JSON格式返回交易信号：
               {{
                 "signal": "bullish/bearish/neutral",
-                "confidence": float (0-100),
-                "reasoning": "string"
+                "confidence": 0到100之间的浮点数,
+                "reasoning": "用中文写的推理字符串"
               }}
               """,
             ),
@@ -590,7 +592,7 @@ def generate_druckenmiller_output(
         return StanleyDruckenmillerSignal(
             signal="neutral",
             confidence=0.0,
-            reasoning="Error in analysis, defaulting to neutral"
+            reasoning="分析出错，默认为中性"
         )
 
     return call_llm(

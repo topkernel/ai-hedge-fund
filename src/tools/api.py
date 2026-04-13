@@ -7,6 +7,11 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Data source dispatcher: "financial_datasets" (default) or "akshare"
+# Lazy evaluation so .env is respected regardless of import order
+def _data_source():
+    return os.environ.get("DATA_SOURCE", "financial_datasets")
+
 from src.data.cache import get_cache
 from src.data.models import (
     CompanyNews,
@@ -62,6 +67,9 @@ def _make_api_request(url: str, headers: dict, method: str = "GET", json_data: d
 
 def get_prices(ticker: str, start_date: str, end_date: str, api_key: str = None) -> list[Price]:
     """Fetch price data from cache or API."""
+    if _data_source() == "akshare":
+        from src.tools.api_akshare import get_prices as _gp
+        return _gp(ticker, start_date, end_date, api_key)
     # Create a cache key that includes all parameters to ensure exact matches
     cache_key = f"{ticker}_{start_date}_{end_date}"
     
@@ -104,6 +112,9 @@ def get_financial_metrics(
     api_key: str = None,
 ) -> list[FinancialMetrics]:
     """Fetch financial metrics from cache or API."""
+    if _data_source() == "akshare":
+        from src.tools.api_akshare import get_financial_metrics as _gfm
+        return _gfm(ticker, end_date, period, limit, api_key)
     # Create a cache key that includes all parameters to ensure exact matches
     cache_key = f"{ticker}_{period}_{end_date}_{limit}"
     
@@ -147,6 +158,9 @@ def search_line_items(
     api_key: str = None,
 ) -> list[LineItem]:
     """Fetch line items from API."""
+    if _data_source() == "akshare":
+        from src.tools.api_akshare import search_line_items as _sli
+        return _sli(ticker, line_items, end_date, period, limit, api_key)
     # If not in cache or insufficient data, fetch from API
     headers = {}
     financial_api_key = api_key or os.environ.get("FINANCIAL_DATASETS_API_KEY")
@@ -188,6 +202,9 @@ def get_insider_trades(
     api_key: str = None,
 ) -> list[InsiderTrade]:
     """Fetch insider trades from cache or API."""
+    if _data_source() == "akshare":
+        from src.tools.api_akshare import get_insider_trades as _git
+        return _git(ticker, end_date, start_date, limit, api_key)
     # Create a cache key that includes all parameters to ensure exact matches
     cache_key = f"{ticker}_{start_date or 'none'}_{end_date}_{limit}"
     
@@ -254,6 +271,9 @@ def get_company_news(
     api_key: str = None,
 ) -> list[CompanyNews]:
     """Fetch company news from cache or API."""
+    if _data_source() == "akshare":
+        from src.tools.api_akshare import get_company_news as _gcn
+        return _gcn(ticker, end_date, start_date, limit, api_key)
     # Create a cache key that includes all parameters to ensure exact matches
     cache_key = f"{ticker}_{start_date or 'none'}_{end_date}_{limit}"
     
@@ -318,6 +338,9 @@ def get_market_cap(
     api_key: str = None,
 ) -> float | None:
     """Fetch market cap from the API."""
+    if _data_source() == "akshare":
+        from src.tools.api_akshare import get_market_cap as _gmc
+        return _gmc(ticker, end_date, api_key)
     # Check if end_date is today
     if end_date == datetime.datetime.now().strftime("%Y-%m-%d"):
         # Get the market cap from company facts API

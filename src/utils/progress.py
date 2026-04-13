@@ -90,10 +90,10 @@ class AgentProgress:
             status = info["status"]
             ticker = info["ticker"]
             # Create the status text with appropriate styling
-            if status.lower() == "done":
+            if status.lower() in ("done", "完成"):
                 style = Style(color="green", bold=True)
                 symbol = "✓"
-            elif status.lower() == "error":
+            elif status.lower() in ("error", "错误"):
                 style = Style(color="red", bold=True)
                 symbol = "✗"
             else:

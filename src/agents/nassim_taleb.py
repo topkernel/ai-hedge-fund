@@ -43,14 +43,14 @@ def nassim_taleb_agent(state: AgentState, agent_id: str = "nassim_taleb_agent"):
     taleb_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching price data")
+        progress.update_status(agent_id, ticker, "获取价格数据")
         prices = get_prices(ticker, start_date, end_date, api_key=api_key)
         prices_df = prices_to_df(prices) if prices else pd.DataFrame()
 
-        progress.update_status(agent_id, ticker, "Fetching financial metrics")
+        progress.update_status(agent_id, ticker, "获取财务指标")
         metrics = get_financial_metrics(ticker, end_date, period="ttm", limit=10, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        progress.update_status(agent_id, ticker, "获取财务科目")
         line_items = search_line_items(
             ticker,
             [
@@ -72,35 +72,35 @@ def nassim_taleb_agent(state: AgentState, agent_id: str = "nassim_taleb_agent"):
             api_key=api_key,
         )
 
-        progress.update_status(agent_id, ticker, "Fetching insider trades")
+        progress.update_status(agent_id, ticker, "获取内部人交易")
         insider_trades = get_insider_trades(ticker, end_date=end_date, start_date=start_date)
 
-        progress.update_status(agent_id, ticker, "Fetching company news")
+        progress.update_status(agent_id, ticker, "获取公司新闻")
         news = get_company_news(ticker, end_date=end_date, start_date=start_date, limit=100)
 
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
         # Run sub-analyses
-        progress.update_status(agent_id, ticker, "Analyzing tail risk")
+        progress.update_status(agent_id, ticker, "分析尾部风险")
         tail_risk_analysis = analyze_tail_risk(prices_df)
 
-        progress.update_status(agent_id, ticker, "Analyzing antifragility")
+        progress.update_status(agent_id, ticker, "分析反脆弱性")
         antifragility_analysis = analyze_antifragility(metrics, line_items, market_cap)
 
-        progress.update_status(agent_id, ticker, "Analyzing convexity")
+        progress.update_status(agent_id, ticker, "分析凸性")
         convexity_analysis = analyze_convexity(metrics, line_items, prices_df, market_cap)
 
-        progress.update_status(agent_id, ticker, "Analyzing fragility")
+        progress.update_status(agent_id, ticker, "分析脆弱性")
         fragility_analysis = analyze_fragility(metrics, line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing skin in the game")
+        progress.update_status(agent_id, ticker, "分析利益一致性")
         skin_in_game_analysis = analyze_skin_in_game(insider_trades)
 
-        progress.update_status(agent_id, ticker, "Analyzing volatility regime")
+        progress.update_status(agent_id, ticker, "分析波动率体制")
         volatility_regime_analysis = analyze_volatility_regime(prices_df)
 
-        progress.update_status(agent_id, ticker, "Scanning for black swan signals")
+        progress.update_status(agent_id, ticker, "扫描黑天鹅信号")
         black_swan_analysis = analyze_black_swan_sentinel(news, prices_df)
 
         # Aggregate scores (raw addition — max_scores create implicit weighting)
@@ -137,7 +137,7 @@ def nassim_taleb_agent(state: AgentState, agent_id: str = "nassim_taleb_agent"):
             "market_cap": market_cap,
         }
 
-        progress.update_status(agent_id, ticker, "Generating Nassim Taleb analysis")
+        progress.update_status(agent_id, ticker, "生成塔勒布分析")
         taleb_output = generate_taleb_output(
             ticker=ticker,
             analysis_data=analysis_data[ticker],
@@ -151,19 +151,19 @@ def nassim_taleb_agent(state: AgentState, agent_id: str = "nassim_taleb_agent"):
             "reasoning": taleb_output.reasoning,
         }
 
-        progress.update_status(agent_id, ticker, "Done", analysis=taleb_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=taleb_output.reasoning)
 
     # Create the message
     message = HumanMessage(content=json.dumps(taleb_analysis), name=agent_id)
 
     # Show reasoning if requested
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(taleb_analysis, agent_id)
+        show_agent_reasoning(taleb_analysis, "纳西姆·塔勒布智能体")
 
     # Add the signal to the analyst_signals list
     state["data"]["analyst_signals"][agent_id] = taleb_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {"messages": [message], "data": state["data"]}
 
@@ -191,7 +191,7 @@ def safe_float(value, default=0.0):
 def analyze_tail_risk(prices_df: pd.DataFrame) -> dict[str, any]:
     """Assess fat tails, skewness, tail ratio, and max drawdown."""
     if prices_df.empty or len(prices_df) < 20:
-        return {"score": 0, "max_score": 8, "details": "Insufficient price data for tail risk analysis"}
+        return {"score": 0, "max_score": 8, "details": "尾部风险分析价格数据不足"}
 
     score = 0
     reasoning = []
@@ -206,12 +206,12 @@ def analyze_tail_risk(prices_df: pd.DataFrame) -> dict[str, any]:
 
     if kurt > 5:
         score += 2
-        reasoning.append(f"Extremely fat tails (kurtosis {kurt:.1f})")
+        reasoning.append(f"极度肥尾（峰度 {kurt:.1f}）")
     elif kurt > 2:
         score += 1
-        reasoning.append(f"Moderate fat tails (kurtosis {kurt:.1f})")
+        reasoning.append(f"中等肥尾（峰度 {kurt:.1f}）")
     else:
-        reasoning.append(f"Near-Gaussian tails (kurtosis {kurt:.1f}) — suspiciously thin")
+        reasoning.append(f"近似正态尾部（峰度 {kurt:.1f}）——可疑的薄尾")
 
     # Skewness
     if len(returns) >= 63:
@@ -221,12 +221,12 @@ def analyze_tail_risk(prices_df: pd.DataFrame) -> dict[str, any]:
 
     if skew > 0.5:
         score += 2
-        reasoning.append(f"Positive skew ({skew:.2f}) favors long convexity")
+        reasoning.append(f"正偏度（{skew:.2f}）有利于做多凸性")
     elif skew > -0.5:
         score += 1
-        reasoning.append(f"Symmetric distribution (skew {skew:.2f})")
+        reasoning.append(f"对称分布（偏度 {skew:.2f}）")
     else:
-        reasoning.append(f"Negative skew ({skew:.2f}) — crash-prone")
+        reasoning.append(f"负偏度（{skew:.2f}）——易崩盘")
 
     # Tail ratio (95th percentile gains / abs(5th percentile losses))
     positive_returns = returns[returns > 0]
@@ -239,14 +239,14 @@ def analyze_tail_risk(prices_df: pd.DataFrame) -> dict[str, any]:
 
         if tail_ratio > 1.2:
             score += 2
-            reasoning.append(f"Asymmetric upside (tail ratio {tail_ratio:.2f})")
+            reasoning.append(f"非对称上行（尾部比 {tail_ratio:.2f}）")
         elif tail_ratio > 0.8:
             score += 1
-            reasoning.append(f"Balanced tails (tail ratio {tail_ratio:.2f})")
+            reasoning.append(f"均衡尾部（尾部比 {tail_ratio:.2f}）")
         else:
-            reasoning.append(f"Asymmetric downside (tail ratio {tail_ratio:.2f})")
+            reasoning.append(f"非对称下行（尾部比 {tail_ratio:.2f}）")
     else:
-        reasoning.append("Insufficient data for tail ratio")
+        reasoning.append("尾部比数据不足")
 
     # Max drawdown
     cumulative = (1 + returns).cumprod()
@@ -256,12 +256,12 @@ def analyze_tail_risk(prices_df: pd.DataFrame) -> dict[str, any]:
 
     if max_dd > -0.15:
         score += 2
-        reasoning.append(f"Resilient (max drawdown {max_dd:.1%})")
+        reasoning.append(f"抗跌性强（最大回撤 {max_dd:.1%}）")
     elif max_dd > -0.30:
         score += 1
-        reasoning.append(f"Moderate drawdown ({max_dd:.1%})")
+        reasoning.append(f"中等回撤（{max_dd:.1%}）")
     else:
-        reasoning.append(f"Severe drawdown ({max_dd:.1%}) — fragile")
+        reasoning.append(f"严重回撤（{max_dd:.1%}）——脆弱")
 
     return {"score": score, "max_score": 8, "details": "; ".join(reasoning)}
 
@@ -269,7 +269,7 @@ def analyze_tail_risk(prices_df: pd.DataFrame) -> dict[str, any]:
 def analyze_antifragility(metrics: list, line_items: list, market_cap: float | None) -> dict[str, any]:
     """Evaluate whether the company benefits from disorder: low debt, high cash, stable margins."""
     if not metrics and not line_items:
-        return {"score": 0, "max_score": 10, "details": "Insufficient data for antifragility analysis"}
+        return {"score": 0, "max_score": 10, "details": "反脆弱性分析数据不足"}
 
     score = 0
     reasoning = []
@@ -285,31 +285,31 @@ def analyze_antifragility(metrics: list, line_items: list, market_cap: float | N
         net_cash = cash - total_debt
         if net_cash > 0 and market_cap and cash > 0.20 * market_cap:
             score += 3
-            reasoning.append(f"War chest: net cash ${net_cash:,.0f}, cash is {cash / market_cap:.0%} of market cap")
+            reasoning.append(f"现金弹药库：净现金 ${net_cash:,.0f}，现金占市值 {cash / market_cap:.0%}")
         elif net_cash > 0:
             score += 2
-            reasoning.append(f"Net cash positive (${net_cash:,.0f})")
+            reasoning.append(f"净现金为正（${net_cash:,.0f}）")
         elif total_assets and total_debt < 0.30 * total_assets:
             score += 1
-            reasoning.append("Net debt but manageable relative to assets")
+            reasoning.append("净负债但相对于资产可控")
         else:
-            reasoning.append("Leveraged position — not antifragile")
+            reasoning.append("杠杆头寸——不具备反脆弱性")
     else:
-        reasoning.append("Cash/debt data not available")
+        reasoning.append("现金/负债数据不可用")
 
     # Debt-to-equity
     debt_to_equity = getattr(latest_metrics, "debt_to_equity", None) if latest_metrics else None
     if debt_to_equity is not None:
         if debt_to_equity < 0.3:
             score += 2
-            reasoning.append(f"Taleb-approved low leverage (D/E {debt_to_equity:.2f})")
+            reasoning.append(f"塔勒布认可的低杠杆（D/E {debt_to_equity:.2f}）")
         elif debt_to_equity < 0.7:
             score += 1
-            reasoning.append(f"Moderate leverage (D/E {debt_to_equity:.2f})")
+            reasoning.append(f"中等杠杆（D/E {debt_to_equity:.2f}）")
         else:
-            reasoning.append(f"High leverage (D/E {debt_to_equity:.2f}) — fragile")
+            reasoning.append(f"高杠杆（D/E {debt_to_equity:.2f}）——脆弱")
     else:
-        reasoning.append("Debt-to-equity data not available")
+        reasoning.append("负债权益比数据不可用")
 
     # Operating margin stability (CV across periods)
     op_margins = [m.operating_margin for m in metrics if m.operating_margin is not None]
@@ -321,17 +321,17 @@ def analyze_antifragility(metrics: list, line_items: list, market_cap: float | N
 
         if cv < 0.15 and mean_margin > 0.15:
             score += 3
-            reasoning.append(f"Stable high margins (avg {mean_margin:.1%}, CV {cv:.2f}) — antifragile pricing power")
+            reasoning.append(f"稳定的高利润率（均值 {mean_margin:.1%}，变异系数 {cv:.2f}）——反脆弱的定价权")
         elif cv < 0.30 and mean_margin > 0.10:
             score += 2
-            reasoning.append(f"Reasonable margin stability (avg {mean_margin:.1%}, CV {cv:.2f})")
+            reasoning.append(f"利润率稳定性尚可（均值 {mean_margin:.1%}，变异系数 {cv:.2f}）")
         elif cv < 0.30:
             score += 1
-            reasoning.append(f"Margins somewhat stable (CV {cv:.2f}) but low (avg {mean_margin:.1%})")
+            reasoning.append(f"利润率相对稳定（变异系数 {cv:.2f}）但偏低（均值 {mean_margin:.1%}）")
         else:
-            reasoning.append(f"Volatile margins (CV {cv:.2f}) — fragile pricing power")
+            reasoning.append(f"利润率波动大（变异系数 {cv:.2f}）——脆弱的定价权")
     else:
-        reasoning.append("Insufficient margin history for stability analysis")
+        reasoning.append("利润率历史数据不足以进行稳定性分析")
 
     # FCF consistency
     fcf_values = [getattr(item, "free_cash_flow", None) for item in line_items] if line_items else []
@@ -340,14 +340,14 @@ def analyze_antifragility(metrics: list, line_items: list, market_cap: float | N
         positive_count = sum(1 for v in fcf_values if v > 0)
         if positive_count == len(fcf_values):
             score += 2
-            reasoning.append(f"Consistent FCF generation ({positive_count}/{len(fcf_values)} periods positive)")
+            reasoning.append(f"持续的自由现金流产生（{positive_count}/{len(fcf_values)} 个期间为正）")
         elif positive_count > len(fcf_values) / 2:
             score += 1
-            reasoning.append(f"Majority positive FCF ({positive_count}/{len(fcf_values)} periods)")
+            reasoning.append(f"多数期间自由现金流为正（{positive_count}/{len(fcf_values)} 个期间）")
         else:
-            reasoning.append(f"Inconsistent FCF ({positive_count}/{len(fcf_values)} periods positive)")
+            reasoning.append(f"自由现金流不稳定（{positive_count}/{len(fcf_values)} 个期间为正）")
     else:
-        reasoning.append("FCF data not available")
+        reasoning.append("自由现金流数据不可用")
 
     return {"score": score, "max_score": 10, "details": "; ".join(reasoning)}
 
@@ -357,7 +357,7 @@ def analyze_convexity(
 ) -> dict[str, any]:
     """Measure asymmetric payoff potential: R&D optionality, upside/downside ratio, cash optionality."""
     if not metrics and not line_items and prices_df.empty:
-        return {"score": 0, "max_score": 10, "details": "Insufficient data for convexity analysis"}
+        return {"score": 0, "max_score": 10, "details": "凸性分析数据不足"}
 
     score = 0
     reasoning = []
@@ -371,17 +371,17 @@ def analyze_convexity(
         rd_ratio = abs(rd) / revenue
         if rd_ratio > 0.15:
             score += 3
-            reasoning.append(f"Significant embedded optionality via R&D ({rd_ratio:.1%} of revenue)")
+            reasoning.append(f"通过研发具有显著的嵌入式期权价值（占收入 {rd_ratio:.1%}）")
         elif rd_ratio > 0.08:
             score += 2
-            reasoning.append(f"Meaningful R&D investment ({rd_ratio:.1%} of revenue)")
+            reasoning.append(f"有意义的研发投入（占收入 {rd_ratio:.1%}）")
         elif rd_ratio > 0.03:
             score += 1
-            reasoning.append(f"Modest R&D ({rd_ratio:.1%} of revenue)")
+            reasoning.append(f"适度的研发（占收入 {rd_ratio:.1%}）")
         else:
-            reasoning.append(f"Minimal R&D ({rd_ratio:.1%} of revenue)")
+            reasoning.append(f"极少研发（占收入 {rd_ratio:.1%}）")
     else:
-        reasoning.append("R&D data not available — no penalty for non-R&D sectors")
+        reasoning.append("研发数据不可用——非研发行业不扣分")
 
     # Upside/downside capture ratio
     if not prices_df.empty and len(prices_df) >= 20:
@@ -396,16 +396,16 @@ def analyze_convexity(
 
             if up_down_ratio > 1.3:
                 score += 2
-                reasoning.append(f"Convex return profile (up/down ratio {up_down_ratio:.2f})")
+                reasoning.append(f"凸性收益特征（上行/下行比 {up_down_ratio:.2f}）")
             elif up_down_ratio > 1.0:
                 score += 1
-                reasoning.append(f"Slight positive asymmetry (up/down ratio {up_down_ratio:.2f})")
+                reasoning.append(f"轻微正不对称（上行/下行比 {up_down_ratio:.2f}）")
             else:
-                reasoning.append(f"Concave returns (up/down ratio {up_down_ratio:.2f}) — unfavorable")
+                reasoning.append(f"凹性收益（上行/下行比 {up_down_ratio:.2f}）——不利")
         else:
-            reasoning.append("Insufficient return data for asymmetry analysis")
+            reasoning.append("收益率数据不足以进行不对称分析")
     else:
-        reasoning.append("Insufficient price data for return asymmetry analysis")
+        reasoning.append("价格数据不足以进行收益率不对称分析")
 
     # Cash optionality (cash / market_cap)
     cash = getattr(latest_item, "cash_and_equivalents", None) if latest_item else None
@@ -413,17 +413,17 @@ def analyze_convexity(
         cash_ratio = cash / market_cap
         if cash_ratio > 0.30:
             score += 3
-            reasoning.append(f"Cash is a call option on future opportunities ({cash_ratio:.0%} of market cap)")
+            reasoning.append(f"现金是未来机会的看涨期权（占市值 {cash_ratio:.0%}）")
         elif cash_ratio > 0.15:
             score += 2
-            reasoning.append(f"Strong cash position ({cash_ratio:.0%} of market cap)")
+            reasoning.append(f"强劲的现金头寸（占市值 {cash_ratio:.0%}）")
         elif cash_ratio > 0.05:
             score += 1
-            reasoning.append(f"Moderate cash buffer ({cash_ratio:.0%} of market cap)")
+            reasoning.append(f"适度的现金缓冲（占市值 {cash_ratio:.0%}）")
         else:
-            reasoning.append(f"Low cash relative to market cap ({cash_ratio:.0%})")
+            reasoning.append(f"现金相对市值较低（{cash_ratio:.0%}）")
     else:
-        reasoning.append("Cash/market cap data not available")
+        reasoning.append("现金/市值数据不可用")
 
     # FCF yield
     latest_metrics = metrics[0] if metrics else None
@@ -438,14 +438,14 @@ def analyze_convexity(
     if fcf_yield is not None:
         if fcf_yield > 0.10:
             score += 2
-            reasoning.append(f"High FCF yield ({fcf_yield:.1%}) provides margin for convex bet")
+            reasoning.append(f"高自由现金流收益率（{fcf_yield:.1%}）为凸性投资提供安全边际")
         elif fcf_yield > 0.05:
             score += 1
-            reasoning.append(f"Decent FCF yield ({fcf_yield:.1%})")
+            reasoning.append(f"尚可的自由现金流收益率（{fcf_yield:.1%}）")
         else:
-            reasoning.append(f"Low FCF yield ({fcf_yield:.1%})")
+            reasoning.append(f"低自由现金流收益率（{fcf_yield:.1%}）")
     else:
-        reasoning.append("FCF yield data not available")
+        reasoning.append("自由现金流收益率数据不可用")
 
     return {"score": score, "max_score": 10, "details": "; ".join(reasoning)}
 
@@ -453,7 +453,7 @@ def analyze_convexity(
 def analyze_fragility(metrics: list, line_items: list) -> dict[str, any]:
     """Via Negativa: detect fragile companies. High score = NOT fragile."""
     if not metrics:
-        return {"score": 0, "max_score": 8, "details": "Insufficient data for fragility analysis"}
+        return {"score": 0, "max_score": 8, "details": "脆弱性分析数据不足"}
 
     score = 0
     reasoning = []
@@ -463,32 +463,32 @@ def analyze_fragility(metrics: list, line_items: list) -> dict[str, any]:
     debt_to_equity = getattr(latest_metrics, "debt_to_equity", None)
     if debt_to_equity is not None:
         if debt_to_equity > 2.0:
-            reasoning.append(f"Extremely fragile balance sheet (D/E {debt_to_equity:.2f})")
+            reasoning.append(f"极度脆弱的资产负债表（D/E {debt_to_equity:.2f}）")
         elif debt_to_equity > 1.0:
             score += 1
-            reasoning.append(f"Elevated leverage (D/E {debt_to_equity:.2f})")
+            reasoning.append(f"杠杆偏高（D/E {debt_to_equity:.2f}）")
         elif debt_to_equity > 0.5:
             score += 2
-            reasoning.append(f"Moderate leverage (D/E {debt_to_equity:.2f})")
+            reasoning.append(f"中等杠杆（D/E {debt_to_equity:.2f}）")
         else:
             score += 3
-            reasoning.append(f"Low leverage (D/E {debt_to_equity:.2f}) — not fragile")
+            reasoning.append(f"低杠杆（D/E {debt_to_equity:.2f}）——不脆弱")
     else:
-        reasoning.append("Debt-to-equity data not available")
+        reasoning.append("负债权益比数据不可用")
 
     # Interest coverage
     interest_coverage = getattr(latest_metrics, "interest_coverage", None)
     if interest_coverage is not None:
         if interest_coverage > 10:
             score += 2
-            reasoning.append(f"Interest coverage {interest_coverage:.1f}x — debt is irrelevant")
+            reasoning.append(f"利息覆盖率 {interest_coverage:.1f} 倍——债务无关紧要")
         elif interest_coverage > 5:
             score += 1
-            reasoning.append(f"Comfortable interest coverage ({interest_coverage:.1f}x)")
+            reasoning.append(f"利息覆盖率充裕（{interest_coverage:.1f} 倍）")
         else:
-            reasoning.append(f"Low interest coverage ({interest_coverage:.1f}x) — fragile to rate changes")
+            reasoning.append(f"利息覆盖率低（{interest_coverage:.1f} 倍）——对利率变化脆弱")
     else:
-        reasoning.append("Interest coverage data not available")
+        reasoning.append("利息覆盖率数据不可用")
 
     # Earnings volatility
     earnings_growth_values = [m.earnings_growth for m in metrics if m.earnings_growth is not None]
@@ -499,27 +499,27 @@ def analyze_fragility(metrics: list, line_items: list) -> dict[str, any]:
 
         if std_eg < 0.20:
             score += 2
-            reasoning.append(f"Stable earnings (growth std {std_eg:.2f}) — robust")
+            reasoning.append(f"盈利稳定（增长标准差 {std_eg:.2f}）——稳健")
         elif std_eg < 0.50:
             score += 1
-            reasoning.append(f"Moderate earnings volatility (growth std {std_eg:.2f})")
+            reasoning.append(f"中等盈利波动（增长标准差 {std_eg:.2f}）")
         else:
-            reasoning.append(f"Highly volatile earnings (growth std {std_eg:.2f}) — fragile")
+            reasoning.append(f"盈利高度波动（增长标准差 {std_eg:.2f}）——脆弱")
     else:
-        reasoning.append("Insufficient earnings history for volatility analysis")
+        reasoning.append("盈利历史不足以进行波动率分析")
 
     # Net margin buffer
     net_margin = getattr(latest_metrics, "net_margin", None)
     if net_margin is not None:
         if net_margin > 0.15:
             score += 1
-            reasoning.append(f"Fat margins ({net_margin:.1%}) buffer shocks")
+            reasoning.append(f"丰厚的利润率（{net_margin:.1%}）可缓冲冲击")
         elif net_margin >= 0.05:
-            reasoning.append(f"Moderate margins ({net_margin:.1%})")
+            reasoning.append(f"中等的利润率（{net_margin:.1%}）")
         else:
-            reasoning.append(f"Paper-thin margins ({net_margin:.1%}) — one shock away from loss")
+            reasoning.append(f"微薄的利润率（{net_margin:.1%}）——一次冲击就可能亏损")
     else:
-        reasoning.append("Net margin data not available")
+        reasoning.append("净利润率数据不可用")
 
     # Clamp score at minimum 0
     score = max(score, 0)
@@ -530,7 +530,7 @@ def analyze_fragility(metrics: list, line_items: list) -> dict[str, any]:
 def analyze_skin_in_game(insider_trades: list) -> dict[str, any]:
     """Assess insider alignment: net insider buying signals trust."""
     if not insider_trades:
-        return {"score": 1, "max_score": 4, "details": "No insider trade data — neutral assumption"}
+        return {"score": 1, "max_score": 4, "details": "无内部人交易数据——中性假设"}
 
     score = 0
     reasoning = []
@@ -543,15 +543,15 @@ def analyze_skin_in_game(insider_trades: list) -> dict[str, any]:
         buy_sell_ratio = net / max(shares_sold, 1)
         if buy_sell_ratio > 2.0:
             score = 4
-            reasoning.append(f"Strong skin in the game — net insider buying {net:,} shares (ratio {buy_sell_ratio:.1f}x)")
+            reasoning.append(f"强烈的利益一致性——内部人净买入 {net:,} 股（比率 {buy_sell_ratio:.1f} 倍）")
         elif buy_sell_ratio > 0.5:
             score = 3
-            reasoning.append(f"Moderate insider conviction — net buying {net:,} shares")
+            reasoning.append(f"中等内部人信心——净买入 {net:,} 股")
         else:
             score = 2
-            reasoning.append(f"Net insider buying of {net:,} shares")
+            reasoning.append(f"内部人净买入 {net:,} 股")
     else:
-        reasoning.append(f"Insiders selling — no skin in the game (net {net:,} shares)")
+        reasoning.append(f"内部人在卖出——缺乏利益一致性（净 {net:,} 股）")
 
     return {"score": score, "max_score": 4, "details": "; ".join(reasoning)}
 
@@ -559,7 +559,7 @@ def analyze_skin_in_game(insider_trades: list) -> dict[str, any]:
 def analyze_volatility_regime(prices_df: pd.DataFrame) -> dict[str, any]:
     """Volatility regime analysis. Key Taleb insight: low vol is dangerous (turkey problem)."""
     if prices_df.empty or len(prices_df) < 30:
-        return {"score": 0, "max_score": 6, "details": "Insufficient price data for volatility analysis"}
+        return {"score": 0, "max_score": 6, "details": "波动率分析价格数据不足"}
 
     score = 0
     reasoning = []
@@ -581,23 +581,23 @@ def analyze_volatility_regime(prices_df: pd.DataFrame) -> dict[str, any]:
         avg_vol = safe_float(hist_vol.mean())
         vol_regime = current_vol / avg_vol if avg_vol > 0 else 1.0
     else:
-        return {"score": 0, "max_score": 6, "details": "Insufficient data for volatility regime analysis"}
+        return {"score": 0, "max_score": 6, "details": "波动率体制分析数据不足"}
 
     # Vol regime scoring (max 4)
     if vol_regime < 0.7:
-        reasoning.append(f"Dangerously low vol (regime {vol_regime:.2f}) — turkey problem")
+        reasoning.append(f"危险的低波动率（体制 {vol_regime:.2f}）——火鸡问题")
     elif vol_regime < 0.9:
         score += 1
-        reasoning.append(f"Below-average vol (regime {vol_regime:.2f}) — approaching complacency")
+        reasoning.append(f"低于平均的波动率（体制 {vol_regime:.2f}）——接近自满")
     elif vol_regime <= 1.3:
         score += 3
-        reasoning.append(f"Normal vol regime ({vol_regime:.2f}) — fair pricing")
+        reasoning.append(f"正常波动率体制（{vol_regime:.2f}）——合理定价")
     elif vol_regime <= 2.0:
         score += 4
-        reasoning.append(f"Elevated vol (regime {vol_regime:.2f}) — opportunity for the antifragile")
+        reasoning.append(f"波动率升高（体制 {vol_regime:.2f}）——反脆弱者的机会")
     else:
         score += 2
-        reasoning.append(f"Extreme vol (regime {vol_regime:.2f}) — crisis mode")
+        reasoning.append(f"极端波动率（体制 {vol_regime:.2f}）——危机模式")
 
     # Vol-of-vol scoring (max 2)
     if len(hist_vol.dropna()) >= 42:
@@ -609,18 +609,18 @@ def analyze_volatility_regime(prices_df: pd.DataFrame) -> dict[str, any]:
             if median_vov > 0:
                 if current_vov > 2 * median_vov:
                     score += 2
-                    reasoning.append(f"Highly unstable vol (vol-of-vol {current_vov:.4f} vs median {median_vov:.4f}) — regime change likely")
+                    reasoning.append(f"波动率高度不稳定（波动率的波动率 {current_vov:.4f} vs 中位数 {median_vov:.4f}）——体制转换可能")
                 elif current_vov > median_vov:
                     score += 1
-                    reasoning.append(f"Elevated vol-of-vol ({current_vov:.4f} vs median {median_vov:.4f})")
+                    reasoning.append(f"波动率的波动率升高（{current_vov:.4f} vs 中位数 {median_vov:.4f}）")
                 else:
-                    reasoning.append(f"Stable vol-of-vol ({current_vov:.4f})")
+                    reasoning.append(f"波动率的波动率稳定（{current_vov:.4f}）")
             else:
-                reasoning.append("Vol-of-vol median is zero — unusual")
+                reasoning.append("波动率的波动率中位数为零——异常")
         else:
-            reasoning.append("Insufficient vol-of-vol data")
+            reasoning.append("波动率的波动率数据不足")
     else:
-        reasoning.append("Insufficient history for vol-of-vol analysis")
+        reasoning.append("波动率的波动率分析历史数据不足")
 
     return {"score": score, "max_score": 6, "details": "; ".join(reasoning)}
 
@@ -637,7 +637,7 @@ def analyze_black_swan_sentinel(news: list, prices_df: pd.DataFrame) -> dict[str
         neg_count = sum(1 for n in news if n.sentiment and n.sentiment.lower() in ["negative", "bearish"])
         neg_ratio = neg_count / total if total > 0 else 0
     else:
-        reasoning.append("No recent news data")
+        reasoning.append("无近期新闻数据")
 
     # Volume spike detection
     volume_spike = 1.0
@@ -654,23 +654,23 @@ def analyze_black_swan_sentinel(news: list, prices_df: pd.DataFrame) -> dict[str
     # Scoring
     if neg_ratio > 0.7 and volume_spike > 2.0:
         score = 0
-        reasoning.append(f"Black swan warning — {neg_ratio:.0%} negative news, {volume_spike:.1f}x volume spike")
+        reasoning.append(f"黑天鹅警告——{neg_ratio:.0%} 负面新闻，成交量 {volume_spike:.1f} 倍激增")
     elif neg_ratio > 0.5 or volume_spike > 2.5:
         score = 1
-        reasoning.append(f"Elevated stress signals (neg news {neg_ratio:.0%}, volume {volume_spike:.1f}x)")
+        reasoning.append(f"压力信号升高（负面新闻 {neg_ratio:.0%}，成交量 {volume_spike:.1f} 倍）")
     elif neg_ratio > 0.3 and abs(recent_return) > 0.10:
         score = 1
-        reasoning.append(f"Moderate stress with price dislocation ({recent_return:.1%} move, {neg_ratio:.0%} negative news)")
+        reasoning.append(f"中度压力伴随价格偏离（{recent_return:.1%} 变动，{neg_ratio:.0%} 负面新闻）")
     elif neg_ratio < 0.3 and volume_spike < 1.5:
         score = 3
-        reasoning.append("No black swan signals detected")
+        reasoning.append("未检测到黑天鹅信号")
     else:
-        reasoning.append(f"Normal conditions (neg news {neg_ratio:.0%}, volume {volume_spike:.1f}x)")
+        reasoning.append(f"正常状况（负面新闻 {neg_ratio:.0%}，成交量 {volume_spike:.1f} 倍）")
 
     # Contrarian bonus: high negative news but no volume panic could be opportunity
     if neg_ratio > 0.4 and volume_spike < 1.5 and score < 4:
         score = min(score + 1, 4)
-        reasoning.append("Contrarian opportunity — negative sentiment without panic selling")
+        reasoning.append("逆向投资机会——负面情绪但无恐慌性抛售")
 
     return {"score": score, "max_score": 4, "details": "; ".join(reasoning)}
 
@@ -705,40 +705,40 @@ def generate_taleb_output(
         [
             (
                 "system",
-                "You are Nassim Taleb. Decide bullish, bearish, or neutral using only the provided facts.\n"
+                "你是纳西姆·塔勒布。仅根据提供的事实判断看涨、看跌或中性。\n"
                 "\n"
-                "Checklist for decision:\n"
-                "- Antifragility (benefits from disorder)\n"
-                "- Tail risk profile (fat tails, skewness)\n"
-                "- Convexity (asymmetric payoff potential)\n"
-                "- Fragility via negativa (avoid the fragile)\n"
-                "- Skin in the game (insider alignment)\n"
-                "- Volatility regime (low vol = danger)\n"
+                "决策检查清单：\n"
+                "- 反脆弱性（从混乱中获益）\n"
+                "- 尾部风险特征（肥尾、偏度）\n"
+                "- 凸性（非对称收益潜力）\n"
+                "- 脆弱性否定法（避免脆弱的）\n"
+                "- 利益一致性（内部人对齐）\n"
+                "- 波动率体制（低波动率 = 危险）\n"
                 "\n"
-                "Signal rules:\n"
-                "- Bullish: antifragile business with convex payoff AND not fragile.\n"
-                "- Bearish: fragile business (high leverage, thin margins, volatile earnings) OR no skin in the game.\n"
-                "- Neutral: mixed signals, or insufficient data to judge fragility.\n"
+                "信号规则：\n"
+                "- 看涨：反脆弱的业务具有凸性收益且不脆弱。\n"
+                "- 看跌：脆弱的业务（高杠杆、薄利润率、盈利波动）或缺乏利益一致性。\n"
+                "- 中性：信号混杂，或数据不足以判断脆弱性。\n"
                 "\n"
-                "Confidence scale:\n"
-                "- 90-100%: Truly antifragile with strong convexity and skin in the game\n"
-                "- 70-89%: Low fragility with decent optionality\n"
-                "- 50-69%: Mixed fragility signals, uncertain tail exposure\n"
-                "- 30-49%: Some fragility detected, weak insider alignment\n"
-                "- 10-29%: Clearly fragile or dangerous vol regime\n"
+                "置信度范围：\n"
+                "- 90-100%：真正反脆弱，具有强凸性和利益一致性\n"
+                "- 70-89%：低脆弱性，有不错的期权性价值\n"
+                "- 50-69%：脆弱性信号混杂，尾部风险不确定\n"
+                "- 30-49%：检测到部分脆弱性，内部人对齐弱\n"
+                "- 10-29%：明显脆弱或危险的波动率体制\n"
                 "\n"
-                "Use Taleb's vocabulary: antifragile, convexity, skin in the game, via negativa, barbell, turkey problem, Lindy effect.\n"
-                "Keep reasoning under 150 characters. Do not invent data. Return JSON only.",
+                "使用塔勒布的词汇：反脆弱、凸性、利益一致性、否定法、杠铃策略、火鸡问题、林迪效应。\n"
+                "推理保持在150字以内。不要编造数据。仅返回JSON。用中文输出推理。",
             ),
             (
                 "human",
-                "Ticker: {ticker}\n"
-                "Facts:\n{facts}\n\n"
-                "Return exactly:\n"
+                "股票代码：{ticker}\n"
+                "事实数据：\n{facts}\n\n"
+                "请严格按照以下格式返回：\n"
                 "{{\n"
                 '  "signal": "bullish" | "bearish" | "neutral",\n'
-                '  "confidence": int,\n'
-                '  "reasoning": "short justification"\n'
+                '  "confidence": 整数,\n'
+                '  "reasoning": "用中文写的简短理由"\n'
                 "}}",
             ),
         ]
@@ -750,7 +750,7 @@ def generate_taleb_output(
     })
 
     def create_default_nassim_taleb_signal():
-        return NassimTalebSignal(signal="neutral", confidence=50, reasoning="Insufficient data")
+        return NassimTalebSignal(signal="neutral", confidence=50, reasoning="数据不足")
 
     return call_llm(
         prompt=prompt,

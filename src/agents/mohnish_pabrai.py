@@ -29,10 +29,10 @@ def mohnish_pabrai_agent(state: AgentState, agent_id: str = "mohnish_pabrai_agen
     # Pabrai focuses on: downside protection, simple business, moat via unit economics, FCF yield vs alternatives,
     # and potential for doubling in 2-3 years at low risk.
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching financial metrics")
+        progress.update_status(agent_id, ticker, "获取财务指标")
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=8, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        progress.update_status(agent_id, ticker, "获取财务科目")
         line_items = search_line_items(
             ticker,
             [
@@ -62,16 +62,16 @@ def mohnish_pabrai_agent(state: AgentState, agent_id: str = "mohnish_pabrai_agen
             api_key=api_key,
         )
 
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Analyzing downside protection")
+        progress.update_status(agent_id, ticker, "分析下行保护")
         downside = analyze_downside_protection(line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing cash yield and valuation")
+        progress.update_status(agent_id, ticker, "分析现金收益率与估值")
         valuation = analyze_pabrai_valuation(line_items, market_cap)
 
-        progress.update_status(agent_id, ticker, "Assessing potential to double")
+        progress.update_status(agent_id, ticker, "评估翻倍潜力")
         double_potential = analyze_double_potential(line_items, market_cap)
 
         # Combine to an overall score in spirit of Pabrai: heavily weight downside and cash yield
@@ -99,7 +99,7 @@ def mohnish_pabrai_agent(state: AgentState, agent_id: str = "mohnish_pabrai_agen
             "market_cap": market_cap,
         }
 
-        progress.update_status(agent_id, ticker, "Generating Pabrai analysis")
+        progress.update_status(agent_id, ticker, "生成帕布莱分析")
         pabrai_output = generate_pabrai_output(
             ticker=ticker,
             analysis_data=analysis_data,
@@ -113,14 +113,14 @@ def mohnish_pabrai_agent(state: AgentState, agent_id: str = "mohnish_pabrai_agen
             "reasoning": pabrai_output.reasoning,
         }
 
-        progress.update_status(agent_id, ticker, "Done", analysis=pabrai_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=pabrai_output.reasoning)
 
     message = HumanMessage(content=json.dumps(pabrai_analysis), name=agent_id)
 
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(pabrai_analysis, "Mohnish Pabrai Agent")
+        show_agent_reasoning(pabrai_analysis, "莫尼什·帕布莱智能体")
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     state["data"]["analyst_signals"][agent_id] = pabrai_analysis
 
@@ -130,7 +130,7 @@ def mohnish_pabrai_agent(state: AgentState, agent_id: str = "mohnish_pabrai_agen
 def analyze_downside_protection(financial_line_items: list) -> dict[str, any]:
     """Assess balance-sheet strength and downside resiliency (capital preservation first)."""
     if not financial_line_items:
-        return {"score": 0, "details": "Insufficient data"}
+        return {"score": 0, "details": "数据不足"}
 
     latest = financial_line_items[0]
     details: list[str] = []
@@ -148,33 +148,33 @@ def analyze_downside_protection(financial_line_items: list) -> dict[str, any]:
         net_cash = cash - debt
         if net_cash > 0:
             score += 3
-            details.append(f"Net cash position: ${net_cash:,.0f}")
+            details.append(f"净现金头寸：${net_cash:,.0f}")
         else:
-            details.append(f"Net debt position: ${net_cash:,.0f}")
+            details.append(f"净负债头寸：${net_cash:,.0f}")
 
     # Current ratio
     if current_assets is not None and current_liabilities is not None and current_liabilities > 0:
         current_ratio = current_assets / current_liabilities
         if current_ratio >= 2.0:
             score += 2
-            details.append(f"Strong liquidity (current ratio {current_ratio:.2f})")
+            details.append(f"流动性强劲（流动比率 {current_ratio:.2f}）")
         elif current_ratio >= 1.2:
             score += 1
-            details.append(f"Adequate liquidity (current ratio {current_ratio:.2f})")
+            details.append(f"流动性充足（流动比率 {current_ratio:.2f}）")
         else:
-            details.append(f"Weak liquidity (current ratio {current_ratio:.2f})")
+            details.append(f"流动性较弱（流动比率 {current_ratio:.2f}）")
 
     # Low leverage
     if equity is not None and equity > 0 and debt is not None:
         de_ratio = debt / equity
         if de_ratio < 0.3:
             score += 2
-            details.append(f"Very low leverage (D/E {de_ratio:.2f})")
+            details.append(f"极低杠杆（D/E {de_ratio:.2f}）")
         elif de_ratio < 0.7:
             score += 1
-            details.append(f"Moderate leverage (D/E {de_ratio:.2f})")
+            details.append(f"中等杠杆（D/E {de_ratio:.2f}）")
         else:
-            details.append(f"High leverage (D/E {de_ratio:.2f})")
+            details.append(f"高杠杆（D/E {de_ratio:.2f}）")
 
     # Free cash flow positive and stable
     fcf_values = [getattr(li, "free_cash_flow", None) for li in financial_line_items if getattr(li, "free_cash_flow", None) is not None]
@@ -183,12 +183,12 @@ def analyze_downside_protection(financial_line_items: list) -> dict[str, any]:
         older = sum(fcf_values[-3:]) / 3 if len(fcf_values) >= 6 else fcf_values[-1]
         if recent_avg > 0 and recent_avg >= older:
             score += 2
-            details.append("Positive and improving/stable FCF")
+            details.append("自由现金流为正且在改善/稳定")
         elif recent_avg > 0:
             score += 1
-            details.append("Positive but declining FCF")
+            details.append("自由现金流为正但在下降")
         else:
-            details.append("Negative FCF")
+            details.append("自由现金流为负")
 
     return {"score": min(10, score), "details": "; ".join(details)}
 
@@ -196,36 +196,36 @@ def analyze_downside_protection(financial_line_items: list) -> dict[str, any]:
 def analyze_pabrai_valuation(financial_line_items: list, market_cap: float | None) -> dict[str, any]:
     """Value via simple FCF yield and asset-light preference (keep it simple, low mistakes)."""
     if not financial_line_items or market_cap is None or market_cap <= 0:
-        return {"score": 0, "details": "Insufficient data", "fcf_yield": None, "normalized_fcf": None}
+        return {"score": 0, "details": "数据不足", "fcf_yield": None, "normalized_fcf": None}
 
     details: list[str] = []
     fcf_values = [getattr(li, "free_cash_flow", None) for li in financial_line_items if getattr(li, "free_cash_flow", None) is not None]
     capex_vals = [abs(getattr(li, "capital_expenditure", 0) or 0) for li in financial_line_items]
 
     if not fcf_values or len(fcf_values) < 3:
-        return {"score": 0, "details": "Insufficient FCF history", "fcf_yield": None, "normalized_fcf": None}
+        return {"score": 0, "details": "自由现金流历史数据不足", "fcf_yield": None, "normalized_fcf": None}
 
     normalized_fcf = sum(fcf_values[:min(5, len(fcf_values))]) / min(5, len(fcf_values))
     if normalized_fcf <= 0:
-        return {"score": 0, "details": "Non-positive normalized FCF", "fcf_yield": None, "normalized_fcf": normalized_fcf}
+        return {"score": 0, "details": "标准化自由现金流为负", "fcf_yield": None, "normalized_fcf": normalized_fcf}
 
     fcf_yield = normalized_fcf / market_cap
 
     score = 0
     if fcf_yield > 0.10:
         score += 4
-        details.append(f"Exceptional value: {fcf_yield:.1%} FCF yield")
+        details.append(f"极佳价值：自由现金流收益率 {fcf_yield:.1%}")
     elif fcf_yield > 0.07:
         score += 3
-        details.append(f"Attractive value: {fcf_yield:.1%} FCF yield")
+        details.append(f"有吸引力的价值：自由现金流收益率 {fcf_yield:.1%}")
     elif fcf_yield > 0.05:
         score += 2
-        details.append(f"Reasonable value: {fcf_yield:.1%} FCF yield")
+        details.append(f"合理价值：自由现金流收益率 {fcf_yield:.1%}")
     elif fcf_yield > 0.03:
         score += 1
-        details.append(f"Borderline value: {fcf_yield:.1%} FCF yield")
+        details.append(f"临界价值：自由现金流收益率 {fcf_yield:.1%}")
     else:
-        details.append(f"Expensive: {fcf_yield:.1%} FCF yield")
+        details.append(f"偏贵：自由现金流收益率 {fcf_yield:.1%}")
 
     # Asset-light tilt: lower capex intensity preferred
     if capex_vals and len(financial_line_items) >= 3:
@@ -240,12 +240,12 @@ def analyze_pabrai_valuation(financial_line_items: list, market_cap: float | Non
             avg_ratio = sum(capex_to_revenue) / len(capex_to_revenue)
             if avg_ratio < 0.05:
                 score += 2
-                details.append(f"Asset-light: Avg capex {avg_ratio:.1%} of revenue")
+                details.append(f"轻资产：平均资本支出占收入 {avg_ratio:.1%}")
             elif avg_ratio < 0.10:
                 score += 1
-                details.append(f"Moderate capex: Avg capex {avg_ratio:.1%} of revenue")
+                details.append(f"中等资本支出：平均资本支出占收入 {avg_ratio:.1%}")
             else:
-                details.append(f"Capex heavy: Avg capex {avg_ratio:.1%} of revenue")
+                details.append(f"资本支出重：平均资本支出占收入 {avg_ratio:.1%}")
 
     return {"score": min(10, score), "details": "; ".join(details), "fcf_yield": fcf_yield, "normalized_fcf": normalized_fcf}
 
@@ -253,11 +253,11 @@ def analyze_pabrai_valuation(financial_line_items: list, market_cap: float | Non
 def analyze_double_potential(financial_line_items: list, market_cap: float | None) -> dict[str, any]:
     """Estimate low-risk path to double capital in ~2-3 years: runway from FCF growth + rerating."""
     if not financial_line_items or market_cap is None or market_cap <= 0:
-        return {"score": 0, "details": "Insufficient data"}
+        return {"score": 0, "details": "数据不足"}
 
     details: list[str] = []
 
-    # Use revenue and FCF trends as rough growth proxy (keep it simple)
+    # 使用收入和自由现金流趋势作为粗略增长代理（保持简单）
     revenues = [getattr(li, "revenue", None) for li in financial_line_items if getattr(li, "revenue", None) is not None]
     fcfs = [getattr(li, "free_cash_flow", None) for li in financial_line_items if getattr(li, "free_cash_flow", None) is not None]
 
@@ -269,10 +269,10 @@ def analyze_double_potential(financial_line_items: list, market_cap: float | Non
             rev_growth = (recent_rev / older_rev) - 1
             if rev_growth > 0.15:
                 score += 2
-                details.append(f"Strong revenue trajectory ({rev_growth:.1%})")
+                details.append(f"强劲的收入增长轨迹（{rev_growth:.1%}）")
             elif rev_growth > 0.05:
                 score += 1
-                details.append(f"Modest revenue growth ({rev_growth:.1%})")
+                details.append(f"温和的收入增长（{rev_growth:.1%}）")
 
     if fcfs and len(fcfs) >= 3:
         recent_fcf = sum(fcfs[:3]) / 3
@@ -281,13 +281,13 @@ def analyze_double_potential(financial_line_items: list, market_cap: float | Non
             fcf_growth = (recent_fcf / older_fcf) - 1
             if fcf_growth > 0.20:
                 score += 3
-                details.append(f"Strong FCF growth ({fcf_growth:.1%})")
+                details.append(f"强劲的自由现金流增长（{fcf_growth:.1%}）")
             elif fcf_growth > 0.08:
                 score += 2
-                details.append(f"Healthy FCF growth ({fcf_growth:.1%})")
+                details.append(f"健康的自由现金流增长（{fcf_growth:.1%}）")
             elif fcf_growth > 0:
                 score += 1
-                details.append(f"Positive FCF growth ({fcf_growth:.1%})")
+                details.append(f"正自由现金流增长（{fcf_growth:.1%}）")
 
     # If FCF yield is already high (>8%), doubling can come from cash generation alone in few years
     tmp_val = analyze_pabrai_valuation(financial_line_items, market_cap)
@@ -295,10 +295,10 @@ def analyze_double_potential(financial_line_items: list, market_cap: float | Non
     if fcf_yield is not None:
         if fcf_yield > 0.08:
             score += 3
-            details.append("High FCF yield can drive doubling via retained cash/Buybacks")
+            details.append("高自由现金流收益率可通过留存现金/回购推动翻倍")
         elif fcf_yield > 0.05:
             score += 1
-            details.append("Reasonable FCF yield supports moderate compounding")
+            details.append("合理的自由现金流收益率支持温和复利")
 
     return {"score": min(10, score), "details": "; ".join(details)}
 
@@ -313,31 +313,31 @@ def generate_pabrai_output(
     template = ChatPromptTemplate.from_messages([
         (
           "system",
-          """You are Mohnish Pabrai. Apply my value investing philosophy:
+          """你是莫尼什·帕布莱。运用我的价值投资哲学：
 
-          - Heads I win; tails I don't lose much: prioritize downside protection first.
-          - Buy businesses with simple, understandable models and durable moats.
-          - Demand high free cash flow yields and low leverage; prefer asset-light models.
-          - Look for situations where intrinsic value is rising and price is significantly lower.
-          - Favor cloning great investors' ideas and checklists over novelty.
-          - Seek potential to double capital in 2-3 years with low risk.
-          - Avoid leverage, complexity, and fragile balance sheets.
+          - 正面我赢，反面我不怎么输：优先考虑下行保护。
+          - 购买业务简单、可理解且具有持久护城河的企业。
+          - 要求高自由现金流收益率和低杠杆；偏好轻资产模式。
+          - 寻找内在价值在上升而价格显著偏低的情形。
+          - 偏好克隆伟大投资者的想法和清单，而非追求新奇。
+          - 寻求在2-3年内以低风险翻倍资本的潜力。
+          - 避免杠杆、复杂性和脆弱的资产负债表。
 
-            Provide candid, checklist-driven reasoning, with emphasis on capital preservation and expected mispricing.
+            提供坦诚的、清单驱动的推理，重点强调资本保全和预期错误定价。用中文输出推理。
             """,
         ),
         (
           "human",
-          """Analyze {ticker} using the provided data.
+          """使用提供的数据分析 {ticker}。
 
-          DATA:
+          数据：
           {analysis_data}
 
-          Return EXACTLY this JSON:
+          请严格按照以下JSON格式返回：
           {{
             "signal": "bullish" | "bearish" | "neutral",
-            "confidence": float (0-100),
-            "reasoning": "string with Pabrai-style analysis focusing on downside protection, FCF yield, and doubling potential"
+            "confidence": 0到100之间的浮点数,
+            "reasoning": "用中文写的帕布莱风格分析，重点阐述下行保护、自由现金流收益率和翻倍潜力"
           }}
           """,
         ),
@@ -349,7 +349,7 @@ def generate_pabrai_output(
     })
 
     def create_default_pabrai_signal():
-        return MohnishPabraiSignal(signal="neutral", confidence=0.0, reasoning="Error in analysis, defaulting to neutral")
+        return MohnishPabraiSignal(signal="neutral", confidence=0.0, reasoning="分析出错，默认为中性")
 
     return call_llm(
         prompt=prompt,

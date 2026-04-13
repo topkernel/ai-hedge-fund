@@ -41,7 +41,7 @@ def phil_fisher_agent(state: AgentState, agent_id: str = "phil_fisher_agent"):
     fisher_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        progress.update_status(agent_id, ticker, "收集财务报表项目")
         # Include relevant line items for Phil Fisher's approach:
         #   - Growth & Quality: revenue, net_income, earnings_per_share, R&D expense
         #   - Margins & Stability: operating_income, operating_margin, gross_margin
@@ -70,31 +70,31 @@ def phil_fisher_agent(state: AgentState, agent_id: str = "phil_fisher_agent"):
             api_key=api_key,
         )
 
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Fetching insider trades")
+        progress.update_status(agent_id, ticker, "获取内部人交易数据")
         insider_trades = get_insider_trades(ticker, end_date, limit=50, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Fetching company news")
+        progress.update_status(agent_id, ticker, "获取公司新闻")
         company_news = get_company_news(ticker, end_date, limit=50, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Analyzing growth & quality")
+        progress.update_status(agent_id, ticker, "分析增长与质量")
         growth_quality = analyze_fisher_growth_quality(financial_line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing margins & stability")
+        progress.update_status(agent_id, ticker, "分析利润率与稳定性")
         margins_stability = analyze_margins_stability(financial_line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing management efficiency & leverage")
+        progress.update_status(agent_id, ticker, "分析管理效率与杠杆")
         mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing valuation (Fisher style)")
+        progress.update_status(agent_id, ticker, "分析估值（费雪风格）")
         fisher_valuation = analyze_fisher_valuation(financial_line_items, market_cap)
 
-        progress.update_status(agent_id, ticker, "Analyzing insider activity")
+        progress.update_status(agent_id, ticker, "分析内部人活动")
         insider_activity = analyze_insider_activity(insider_trades)
 
-        progress.update_status(agent_id, ticker, "Analyzing sentiment")
+        progress.update_status(agent_id, ticker, "分析市场情绪")
         sentiment_analysis = analyze_sentiment(company_news)
 
         # Combine partial scores with weights typical for Fisher:
@@ -135,7 +135,7 @@ def phil_fisher_agent(state: AgentState, agent_id: str = "phil_fisher_agent"):
             "sentiment_analysis": sentiment_analysis,
         }
 
-        progress.update_status(agent_id, ticker, "Generating Phil Fisher-style analysis")
+        progress.update_status(agent_id, ticker, "生成费雪风格分析")
         fisher_output = generate_fisher_output(
             ticker=ticker,
             analysis_data=analysis_data,
@@ -149,17 +149,17 @@ def phil_fisher_agent(state: AgentState, agent_id: str = "phil_fisher_agent"):
             "reasoning": fisher_output.reasoning,
         }
 
-        progress.update_status(agent_id, ticker, "Done", analysis=fisher_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=fisher_output.reasoning)
 
     # Wrap results in a single message
     message = HumanMessage(content=json.dumps(fisher_analysis), name=agent_id)
 
     if state["metadata"].get("show_reasoning"):
-        show_agent_reasoning(fisher_analysis, "Phil Fisher Agent")
+        show_agent_reasoning(fisher_analysis, "菲利普·费雪智能体")
 
     state["data"]["analyst_signals"][agent_id] = fisher_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
     
     return {"messages": [message], "data": state["data"]}
 
@@ -174,7 +174,7 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
     if not financial_line_items or len(financial_line_items) < 2:
         return {
             "score": 0,
-            "details": "Insufficient financial data for growth/quality analysis",
+            "details": "财务数据不足以进行增长/质量分析",
         }
 
     details = []
@@ -192,19 +192,19 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
             rev_growth = (latest_rev / oldest_rev) ** (1 / num_years) - 1
             if rev_growth > 0.20:  # 20% annualized
                 raw_score += 3
-                details.append(f"Very strong annualized revenue growth: {rev_growth:.1%}")
+                details.append(f"年化收入增长非常强劲：{rev_growth:.1%}")
             elif rev_growth > 0.10:  # 10% annualized
                 raw_score += 2
-                details.append(f"Moderate annualized revenue growth: {rev_growth:.1%}")
+                details.append(f"年化收入增长中等：{rev_growth:.1%}")
             elif rev_growth > 0.03:  # 3% annualized
                 raw_score += 1
-                details.append(f"Slight annualized revenue growth: {rev_growth:.1%}")
+                details.append(f"年化收入增长轻微：{rev_growth:.1%}")
             else:
-                details.append(f"Minimal or negative annualized revenue growth: {rev_growth:.1%}")
+                details.append(f"年化收入增长微乎其微或为负：{rev_growth:.1%}")
         else:
-            details.append("Oldest revenue is zero/negative; cannot compute growth.")
+            details.append("最早收入为零/负数；无法计算增长。")
     else:
-        details.append("Not enough revenue data points for growth calculation.")
+        details.append("收入数据点不足以进行增长计算。")
 
     # 2. EPS Growth (annualized CAGR)
     eps_values = [fi.earnings_per_share for fi in financial_line_items if fi.earnings_per_share is not None]
@@ -217,19 +217,19 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
             eps_growth = (latest_eps / oldest_eps) ** (1 / num_years) - 1
             if eps_growth > 0.20:  # 20% annualized
                 raw_score += 3
-                details.append(f"Very strong annualized EPS growth: {eps_growth:.1%}")
+                details.append(f"年化每股收益增长非常强劲：{eps_growth:.1%}")
             elif eps_growth > 0.10:  # 10% annualized
                 raw_score += 2
-                details.append(f"Moderate annualized EPS growth: {eps_growth:.1%}")
+                details.append(f"年化每股收益增长中等：{eps_growth:.1%}")
             elif eps_growth > 0.03:  # 3% annualized
                 raw_score += 1
-                details.append(f"Slight annualized EPS growth: {eps_growth:.1%}")
+                details.append(f"年化每股收益增长轻微：{eps_growth:.1%}")
             else:
-                details.append(f"Minimal or negative annualized EPS growth: {eps_growth:.1%}")
+                details.append(f"年化每股收益增长微乎其微或为负：{eps_growth:.1%}")
         else:
-            details.append("Oldest EPS near zero; skipping EPS growth calculation.")
+            details.append("最早每股收益接近零；跳过每股收益增长计算。")
     else:
-        details.append("Not enough EPS data points for growth calculation.")
+        details.append("每股收益数据点不足以进行增长计算。")
 
     # 3. R&D as % of Revenue (if we have R&D data)
     rnd_values = [fi.research_and_development for fi in financial_line_items if fi.research_and_development is not None]
@@ -242,17 +242,17 @@ def analyze_fisher_growth_quality(financial_line_items: list) -> dict:
         # but it must be appropriate. We'll assume "3%-15%" is healthy, just as an example.
         if 0.03 <= rnd_ratio <= 0.15:
             raw_score += 3
-            details.append(f"R&D ratio {rnd_ratio:.1%} indicates significant investment in future growth")
+            details.append(f"研发比率 {rnd_ratio:.1%} 表明对未来增长有重大投入")
         elif rnd_ratio > 0.15:
             raw_score += 2
-            details.append(f"R&D ratio {rnd_ratio:.1%} is very high (could be good if well-managed)")
+            details.append(f"研发比率 {rnd_ratio:.1%} 非常高（管理得当可能是好事）")
         elif rnd_ratio > 0.0:
             raw_score += 1
-            details.append(f"R&D ratio {rnd_ratio:.1%} is somewhat low but still positive")
+            details.append(f"研发比率 {rnd_ratio:.1%} 偏低但仍为正")
         else:
-            details.append("No meaningful R&D expense ratio")
+            details.append("无有意义的研发支出比率")
     else:
-        details.append("Insufficient R&D data to evaluate")
+        details.append("研发数据不足以评估")
 
     # scale raw_score (max 9) to 0–10
     final_score = min(10, (raw_score / 9) * 10)
@@ -266,7 +266,7 @@ def analyze_margins_stability(financial_line_items: list) -> dict:
     if not financial_line_items or len(financial_line_items) < 2:
         return {
             "score": 0,
-            "details": "Insufficient data for margin stability analysis",
+            "details": "数据不足以分析利润率稳定性",
         }
 
     details = []
@@ -280,14 +280,14 @@ def analyze_margins_stability(financial_line_items: list) -> dict:
         newest_op_margin = op_margins[0]
         if newest_op_margin >= oldest_op_margin > 0:
             raw_score += 2
-            details.append(f"Operating margin stable or improving ({oldest_op_margin:.1%} -> {newest_op_margin:.1%})")
+            details.append(f"营业利润率稳定或改善中（{oldest_op_margin:.1%} -> {newest_op_margin:.1%}）")
         elif newest_op_margin > 0:
             raw_score += 1
-            details.append(f"Operating margin positive but slightly declined")
+            details.append(f"营业利润率为正但略有下降")
         else:
-            details.append(f"Operating margin may be negative or uncertain")
+            details.append(f"营业利润率可能为负或不确定")
     else:
-        details.append("Not enough operating margin data points")
+        details.append("营业利润率数据点不足")
 
     # 2. Gross Margin Level
     gm_values = [fi.gross_margin for fi in financial_line_items if fi.gross_margin is not None]
@@ -296,14 +296,14 @@ def analyze_margins_stability(financial_line_items: list) -> dict:
         recent_gm = gm_values[0]
         if recent_gm > 0.5:
             raw_score += 2
-            details.append(f"Strong gross margin: {recent_gm:.1%}")
+            details.append(f"毛利率强劲：{recent_gm:.1%}")
         elif recent_gm > 0.3:
             raw_score += 1
-            details.append(f"Moderate gross margin: {recent_gm:.1%}")
+            details.append(f"毛利率中等：{recent_gm:.1%}")
         else:
-            details.append(f"Low gross margin: {recent_gm:.1%}")
+            details.append(f"毛利率偏低：{recent_gm:.1%}")
     else:
-        details.append("No gross margin data available")
+        details.append("无毛利率数据")
 
     # 3. Multi-year Margin Stability
     #   e.g. if we have at least 3 data points, see if standard deviation is low.
@@ -311,14 +311,14 @@ def analyze_margins_stability(financial_line_items: list) -> dict:
         stdev = statistics.pstdev(op_margins)
         if stdev < 0.02:
             raw_score += 2
-            details.append("Operating margin extremely stable over multiple years")
+            details.append("营业利润率在多年间极为稳定")
         elif stdev < 0.05:
             raw_score += 1
-            details.append("Operating margin reasonably stable")
+            details.append("营业利润率较为稳定")
         else:
-            details.append("Operating margin volatility is high")
+            details.append("营业利润率波动较大")
     else:
-        details.append("Not enough margin data points for volatility check")
+        details.append("利润率数据点不足以进行波动性检查")
 
     # scale raw_score (max 6) to 0-10
     final_score = min(10, (raw_score / 6) * 10)
@@ -335,7 +335,7 @@ def analyze_management_efficiency_leverage(financial_line_items: list) -> dict:
     if not financial_line_items:
         return {
             "score": 0,
-            "details": "No financial data for management efficiency analysis",
+            "details": "无财务数据进行管理效率分析",
         }
 
     details = []
@@ -351,19 +351,19 @@ def analyze_management_efficiency_leverage(financial_line_items: list) -> dict:
             roe = recent_ni / recent_eq
             if roe > 0.2:
                 raw_score += 3
-                details.append(f"High ROE: {roe:.1%}")
+                details.append(f"净资产收益率高：{roe:.1%}")
             elif roe > 0.1:
                 raw_score += 2
-                details.append(f"Moderate ROE: {roe:.1%}")
+                details.append(f"净资产收益率中等：{roe:.1%}")
             elif roe > 0:
                 raw_score += 1
-                details.append(f"Positive but low ROE: {roe:.1%}")
+                details.append(f"净资产收益率为正但偏低：{roe:.1%}")
             else:
-                details.append(f"ROE is near zero or negative: {roe:.1%}")
+                details.append(f"净资产收益率接近零或为负：{roe:.1%}")
         else:
-            details.append("Recent net income is zero or negative, hurting ROE")
+            details.append("最近净利润为零或为负，影响净资产收益率")
     else:
-        details.append("Insufficient data for ROE calculation")
+        details.append("数据不足以计算净资产收益率")
 
     # 2. Debt-to-Equity
     debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
@@ -373,14 +373,14 @@ def analyze_management_efficiency_leverage(financial_line_items: list) -> dict:
         dte = recent_debt / recent_equity
         if dte < 0.3:
             raw_score += 2
-            details.append(f"Low debt-to-equity: {dte:.2f}")
+            details.append(f"债务股本比低：{dte:.2f}")
         elif dte < 1.0:
             raw_score += 1
-            details.append(f"Manageable debt-to-equity: {dte:.2f}")
+            details.append(f"债务股本比可控：{dte:.2f}")
         else:
-            details.append(f"High debt-to-equity: {dte:.2f}")
+            details.append(f"债务股本比偏高：{dte:.2f}")
     else:
-        details.append("Insufficient data for debt/equity analysis")
+        details.append("数据不足以进行债务股本比分析")
 
     # 3. FCF Consistency
     fcf_values = [fi.free_cash_flow for fi in financial_line_items if fi.free_cash_flow is not None]
@@ -391,11 +391,11 @@ def analyze_management_efficiency_leverage(financial_line_items: list) -> dict:
         ratio = positive_fcf_count / len(fcf_values)
         if ratio > 0.8:
             raw_score += 1
-            details.append(f"Majority of periods have positive FCF ({positive_fcf_count}/{len(fcf_values)})")
+            details.append(f"多数期间自由现金流为正（{positive_fcf_count}/{len(fcf_values)}）")
         else:
-            details.append(f"Free cash flow is inconsistent or often negative")
+            details.append(f"自由现金流不稳定或经常为负")
     else:
-        details.append("Insufficient or no FCF data to check consistency")
+        details.append("自由现金流数据不足或无数据以检查一致性")
 
     final_score = min(10, (raw_score / 6) * 10)
     return {"score": final_score, "details": "; ".join(details)}
@@ -410,7 +410,7 @@ def analyze_fisher_valuation(financial_line_items: list, market_cap: float | Non
     We will grant up to 2 points for each of two metrics => max 4 raw => scale to 0–10.
     """
     if not financial_line_items or market_cap is None:
-        return {"score": 0, "details": "Insufficient data to perform valuation"}
+        return {"score": 0, "details": "数据不足以进行估值"}
 
     details = []
     raw_score = 0
@@ -426,15 +426,15 @@ def analyze_fisher_valuation(financial_line_items: list, market_cap: float | Non
         pe_points = 0
         if pe < 20:
             pe_points = 2
-            details.append(f"Reasonably attractive P/E: {pe:.2f}")
+            details.append(f"市盈率合理有吸引力：{pe:.2f}")
         elif pe < 30:
             pe_points = 1
-            details.append(f"Somewhat high but possibly justifiable P/E: {pe:.2f}")
+            details.append(f"市盈率偏高但可能有理可据：{pe:.2f}")
         else:
-            details.append(f"Very high P/E: {pe:.2f}")
+            details.append(f"市盈率非常高：{pe:.2f}")
         raw_score += pe_points
     else:
-        details.append("No positive net income for P/E calculation")
+        details.append("无正净利润用于计算市盈率")
 
     # 2) P/FCF
     recent_fcf = fcf_values[0] if fcf_values else None
@@ -443,15 +443,15 @@ def analyze_fisher_valuation(financial_line_items: list, market_cap: float | Non
         pfcf_points = 0
         if pfcf < 20:
             pfcf_points = 2
-            details.append(f"Reasonable P/FCF: {pfcf:.2f}")
+            details.append(f"市现率合理：{pfcf:.2f}")
         elif pfcf < 30:
             pfcf_points = 1
-            details.append(f"Somewhat high P/FCF: {pfcf:.2f}")
+            details.append(f"市现率偏高：{pfcf:.2f}")
         else:
-            details.append(f"Excessively high P/FCF: {pfcf:.2f}")
+            details.append(f"市现率过高：{pfcf:.2f}")
         raw_score += pfcf_points
     else:
-        details.append("No positive free cash flow for P/FCF calculation")
+        details.append("无正自由现金流用于计算市现率")
 
     # scale raw_score (max 4) to 0–10
     final_score = min(10, (raw_score / 4) * 10)
@@ -470,7 +470,7 @@ def analyze_insider_activity(insider_trades: list) -> dict:
     details = []
 
     if not insider_trades:
-        details.append("No insider trades data; defaulting to neutral")
+        details.append("无内部人交易数据；默认中性")
         return {"score": score, "details": "; ".join(details)}
 
     buys, sells = 0, 0
@@ -483,19 +483,19 @@ def analyze_insider_activity(insider_trades: list) -> dict:
 
     total = buys + sells
     if total == 0:
-        details.append("No buy/sell transactions found; neutral")
+        details.append("未发现买卖交易；中性")
         return {"score": score, "details": "; ".join(details)}
 
     buy_ratio = buys / total
     if buy_ratio > 0.7:
         score = 8
-        details.append(f"Heavy insider buying: {buys} buys vs. {sells} sells")
+        details.append(f"内部人大量买入：{buys} 次买入对比 {sells} 次卖出")
     elif buy_ratio > 0.4:
         score = 6
-        details.append(f"Moderate insider buying: {buys} buys vs. {sells} sells")
+        details.append(f"内部人适度买入：{buys} 次买入对比 {sells} 次卖出")
     else:
         score = 4
-        details.append(f"Mostly insider selling: {buys} buys vs. {sells} sells")
+        details.append(f"内部人主要卖出：{buys} 次买入对比 {sells} 次卖出")
 
     return {"score": score, "details": "; ".join(details)}
 
@@ -505,7 +505,7 @@ def analyze_sentiment(news_items: list) -> dict:
     Basic news sentiment: negative keyword check vs. overall volume.
     """
     if not news_items:
-        return {"score": 5, "details": "No news data; defaulting to neutral sentiment"}
+        return {"score": 5, "details": "无新闻数据；默认中性情绪"}
 
     negative_keywords = ["lawsuit", "fraud", "negative", "downturn", "decline", "investigation", "recall"]
     negative_count = 0
@@ -517,13 +517,13 @@ def analyze_sentiment(news_items: list) -> dict:
     details = []
     if negative_count > len(news_items) * 0.3:
         score = 3
-        details.append(f"High proportion of negative headlines: {negative_count}/{len(news_items)}")
+        details.append(f"负面头条比例高：{negative_count}/{len(news_items)}")
     elif negative_count > 0:
         score = 6
-        details.append(f"Some negative headlines: {negative_count}/{len(news_items)}")
+        details.append(f"部分负面头条：{negative_count}/{len(news_items)}")
     else:
         score = 8
-        details.append("Mostly positive/neutral headlines")
+        details.append("头条以正面/中性为主")
 
     return {"score": score, "details": "; ".join(details)}
 
@@ -541,40 +541,40 @@ def generate_fisher_output(
         [
             (
               "system",
-              """You are a Phil Fisher AI agent, making investment decisions using his principles:
-  
-              1. Emphasize long-term growth potential and quality of management.
-              2. Focus on companies investing in R&D for future products/services.
-              3. Look for strong profitability and consistent margins.
-              4. Willing to pay more for exceptional companies but still mindful of valuation.
-              5. Rely on thorough research (scuttlebutt) and thorough fundamental checks.
-              
-              When providing your reasoning, be thorough and specific by:
-              1. Discussing the company's growth prospects in detail with specific metrics and trends
-              2. Evaluating management quality and their capital allocation decisions
-              3. Highlighting R&D investments and product pipeline that could drive future growth
-              4. Assessing consistency of margins and profitability metrics with precise numbers
-              5. Explaining competitive advantages that could sustain growth over 3-5+ years
-              6. Using Phil Fisher's methodical, growth-focused, and long-term oriented voice
-              
-              For example, if bullish: "This company exhibits the sustained growth characteristics we seek, with revenue increasing at 18% annually over five years. Management has demonstrated exceptional foresight by allocating 15% of revenue to R&D, which has produced three promising new product lines. The consistent operating margins of 22-24% indicate pricing power and operational efficiency that should continue to..."
-              
-              For example, if bearish: "Despite operating in a growing industry, management has failed to translate R&D investments (only 5% of revenue) into meaningful new products. Margins have fluctuated between 10-15%, showing inconsistent operational execution. The company faces increasing competition from three larger competitors with superior distribution networks. Given these concerns about long-term growth sustainability..."
-              
-              You must output a JSON object with:
+              """你是菲利普·费雪AI智能体，使用他的投资原则进行决策:
+
+              1. 重视长期增长潜力和管理层质量。
+              2. 关注投资研发以开发未来产品/服务的公司。
+              3. 寻找强劲的盈利能力和一致的利润率。
+              4. 愿意为卓越公司支付溢价但仍关注估值。
+              5. 依赖深入调研 (闲聊法) 和全面的基本面检查。
+
+              在提供推理时，要详尽具体:
+              1. 详细讨论公司的增长前景，引用具体的指标和趋势
+              2. 评估管理层质量及其资本配置决策
+              3. 突出研发投资和可能推动未来增长的产品管线
+              4. 评估利润率和盈利指标的一致性，提供精确数字
+              5. 解释可能维持3-5年以上增长的竞争优势
+              6. 使用菲利普·费雪的有条理、注重增长和长期导向的语调
+
+              例如，如果看涨: "该公司展现出我们寻求的持续增长特征，五年间收入以每年18%的速度增长。管理层展现了卓越的前瞻性，将15%的收入分配给研发，已产生三个有前景的新产品线。22-24%的一致营业利润率表明定价权和运营效率将持续..."
+
+              例如，如果看跌: "尽管处于增长行业，管理层未能将研发投资 (仅占收入的5%) 转化为有意义的新产品。利润率在10-15%之间波动，显示运营执行不一致。公司面临来自三个拥有更优分销网络的更大竞争对手的日益激烈竞争。鉴于对长期增长可持续性的这些担忧..."
+
+              用中文输出推理。你必须输出一个JSON对象:
                 - "signal": "bullish" or "bearish" or "neutral"
-                - "confidence": a float between 0 and 100
-                - "reasoning": a detailed explanation
+                - "confidence": 0到100之间的浮点数
+                - "reasoning": 详细解释
               """,
             ),
             (
               "human",
-              """Based on the following analysis, create a Phil Fisher-style investment signal.
+              """根据以下分析，创建费雪风格的投资信号。用中文回答。
 
-              Analysis Data for {ticker}:
+              {ticker} 的分析数据:
               {analysis_data}
 
-              Return the trading signal in this JSON format:
+              按以下JSON格式返回交易信号:
               {{
                 "signal": "bullish/bearish/neutral",
                 "confidence": float (0-100),
@@ -591,7 +591,7 @@ def generate_fisher_output(
         return PhilFisherSignal(
             signal="neutral",
             confidence=0.0,
-            reasoning="Error in analysis, defaulting to neutral"
+            reasoning="分析出错，默认中性"
         )
 
     return call_llm(

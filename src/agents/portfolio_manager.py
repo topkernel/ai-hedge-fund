@@ -34,7 +34,7 @@ def portfolio_management_agent(state: AgentState, agent_id: str = "portfolio_man
     max_shares = {}
     signals_by_ticker = {}
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Processing analyst signals")
+        progress.update_status(agent_id, ticker, "处理分析师信号")
 
         # Find the corresponding risk manager for this portfolio manager
         if agent_id.startswith("portfolio_manager_"):
@@ -65,7 +65,7 @@ def portfolio_management_agent(state: AgentState, agent_id: str = "portfolio_man
 
     state["data"]["current_prices"] = current_prices
 
-    progress.update_status(agent_id, None, "Generating trading decisions")
+    progress.update_status(agent_id, None, "生成交易决策")
 
     result = generate_trading_decision(
         tickers=tickers,
@@ -83,9 +83,9 @@ def portfolio_management_agent(state: AgentState, agent_id: str = "portfolio_man
 
     if state["metadata"]["show_reasoning"]:
         show_agent_reasoning({ticker: decision.model_dump() for ticker, decision in result.decisions.items()},
-                             "Portfolio Manager")
+                             "投资组合经理")
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {
         "messages": state["messages"] + [message],
@@ -196,7 +196,7 @@ def generate_trading_decision(
         # If only 'hold' key exists, there is no trade possible
         if set(aa.keys()) == {"hold"}:
             prefilled_decisions[t] = PortfolioDecision(
-                action="hold", quantity=0, confidence=100.0, reasoning="No valid trade available"
+                action="hold", quantity=0, confidence=100.0, reasoning="无有效交易"
             )
         else:
             tickers_for_llm.append(t)
@@ -213,16 +213,16 @@ def generate_trading_decision(
         [
             (
                 "system",
-                "You are a portfolio manager.\n"
-                "Inputs per ticker: analyst signals and allowed actions with max qty (already validated).\n"
-                "Pick one allowed action per ticker and a quantity ≤ the max. "
-                "Keep reasoning very concise (max 100 chars). No cash or margin math. Return JSON only."
+                "你是一个投资组合经理。\n"
+                "每个股票的输入：分析师信号和已验证的允许操作及最大数量。\n"
+                "为每个股票选择一个允许的操作，数量不超过最大值。"
+                "推理用中文，保持简洁（最多100字符）。不需要计算现金或保证金。只返回 JSON。"
             ),
             (
                 "human",
-                "Signals:\n{signals}\n\n"
-                "Allowed:\n{allowed}\n\n"
-                "Format:\n"
+                "信号：\n{signals}\n\n"
+                "允许操作：\n{allowed}\n\n"
+                "格式：\n"
                 "{{\n"
                 '  "decisions": {{\n'
                 '    "TICKER": {{"action":"...","quantity":int,"confidence":int,"reasoning":"..."}}\n'
@@ -244,7 +244,7 @@ def generate_trading_decision(
         decisions = dict(prefilled_decisions)
         for t in tickers_for_llm:
             decisions[t] = PortfolioDecision(
-                action="hold", quantity=0, confidence=0.0, reasoning="Default decision: hold"
+                action="hold", quantity=0, confidence=0.0, reasoning="默认决策：持有"
             )
         return PortfolioManagerOutput(decisions=decisions)
 

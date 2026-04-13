@@ -25,7 +25,7 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
     all_tickers = set(tickers) | set(portfolio.get("positions", {}).keys())
     
     for ticker in all_tickers:
-        progress.update_status(agent_id, ticker, "Fetching price data and calculating volatility")
+        progress.update_status(agent_id, ticker, "获取价格数据并计算波动率")
         
         prices = get_prices(
             ticker=ticker,
@@ -35,7 +35,7 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
         )
 
         if not prices:
-            progress.update_status(agent_id, ticker, "Warning: No price data found")
+            progress.update_status(agent_id, ticker, "警告：未找到价格数据")
             volatility_data[ticker] = {
                 "daily_volatility": 0.05,  # Default fallback volatility (5% daily)
                 "annualized_volatility": 0.05 * np.sqrt(252),
@@ -65,7 +65,7 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
                 f"Price: {current_price:.2f}, Ann. Vol: {volatility_metrics['annualized_volatility']:.1%}"
             )
         else:
-            progress.update_status(agent_id, ticker, "Warning: Insufficient price data")
+            progress.update_status(agent_id, ticker, "警告：价格数据不足")
             current_prices[ticker] = 0
             volatility_data[ticker] = {
                 "daily_volatility": 0.05,
@@ -100,19 +100,19 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
             # Subtract market value of short positions
             total_portfolio_value -= position.get("short", 0) * current_prices[ticker]
     
-    progress.update_status(agent_id, None, f"Total portfolio value: {total_portfolio_value:.2f}")
+    progress.update_status(agent_id, None, f"组合总价值：{total_portfolio_value:.2f}")
 
     # Calculate volatility- and correlation-adjusted risk limits for each ticker
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Calculating volatility- and correlation-adjusted limits")
+        progress.update_status(agent_id, ticker, "计算波动率和相关性调整后的限额")
         
         if ticker not in current_prices or current_prices[ticker] <= 0:
-            progress.update_status(agent_id, ticker, "Failed: No valid price data")
+            progress.update_status(agent_id, ticker, "失败：无有效价格数据")
             risk_analysis[ticker] = {
                 "remaining_position_limit": 0.0,
                 "current_price": 0.0,
                 "reasoning": {
-                    "error": "Missing price data for risk calculation"
+                    "error": "缺少风险计算所需的价格数据"
                 }
             }
             continue
@@ -190,17 +190,17 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
                 "position_limit": float(position_limit),
                 "remaining_limit": float(remaining_position_limit),
                 "available_cash": float(portfolio.get("cash", 0)),
-                "risk_adjustment": f"Volatility x Correlation adjusted: {combined_limit_pct:.1%} (base {vol_adjusted_limit_pct:.1%})"
+                "risk_adjustment": f"波动率×相关性调整后：{combined_limit_pct:.1%}（基准 {vol_adjusted_limit_pct:.1%}）"
             },
         }
         
         progress.update_status(
             agent_id, 
             ticker, 
-            f"Adj. limit: {combined_limit_pct:.1%}, Available: ${max_position_size:.0f}"
+            f"调整限额：{combined_limit_pct:.1%}，可用：¥{max_position_size:.0f}"
         )
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     message = HumanMessage(
         content=json.dumps(risk_analysis),
@@ -208,7 +208,7 @@ def risk_management_agent(state: AgentState, agent_id: str = "risk_management_ag
     )
 
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(risk_analysis, "Volatility-Adjusted Risk Management Agent")
+        show_agent_reasoning(risk_analysis, "波动率调整风险管理")
 
     # Add the signal to the analyst_signals list
     state["data"]["analyst_signals"][agent_id] = risk_analysis

@@ -1,10 +1,30 @@
 """Helper functions for LLM"""
 
+import os
 import json
+import time
+import threading
 from pydantic import BaseModel
 from src.llm.models import get_model, get_model_info
 from src.utils.progress import progress
 from src.graph.state import AgentState
+
+# Rate limiter: ensure minimum interval between LLM calls to avoid 429 errors
+_llm_lock = threading.Lock()
+_last_llm_call = 0.0
+# Minimum seconds between LLM calls; adjust based on your API tier
+_MIN_LLM_INTERVAL = float(os.environ.get("LLM_CALL_INTERVAL", "2.0"))
+
+
+def _rate_limit_llm():
+    """Thread-safe rate limiter for LLM API calls."""
+    global _last_llm_call
+    with _llm_lock:
+        now = time.time()
+        elapsed = now - _last_llm_call
+        if elapsed < _MIN_LLM_INTERVAL:
+            time.sleep(_MIN_LLM_INTERVAL - elapsed)
+        _last_llm_call = time.time()
 
 
 def call_llm(
@@ -35,8 +55,8 @@ def call_llm(
         model_name, model_provider = get_agent_model_config(state, agent_name)
     else:
         # Use system defaults when no state or agent_name is provided
-        model_name = "gpt-4.1"
-        model_provider = "OPENAI"
+        model_name = os.getenv("DEFAULT_MODEL_NAME", "gpt-4.1")
+        model_provider = os.getenv("DEFAULT_MODEL_PROVIDER", "OPENAI")
 
     # Extract API keys from state if available
     api_keys = None
@@ -58,6 +78,9 @@ def call_llm(
     # Call the LLM with retries
     for attempt in range(max_retries):
         try:
+            # Rate limit to avoid hitting API rate limits
+            _rate_limit_llm()
+
             # Call the LLM
             result = llm.invoke(prompt)
 
@@ -70,11 +93,18 @@ def call_llm(
                 return result
 
         except Exception as e:
+            err_str = str(e).lower()
+            # If rate limited (429), wait longer before retrying
+            if "429" in err_str or "rate" in err_str or "频率" in err_str or "limit" in err_str:
+                backoff = 10 * (attempt + 1)  # 10s, 20s, 30s
+                print(f"  API 速率限制，等待 {backoff}s 后重试 ({attempt + 1}/{max_retries})...")
+                time.sleep(backoff)
+
             if agent_name:
-                progress.update_status(agent_name, None, f"Error - retry {attempt + 1}/{max_retries}")
+                progress.update_status(agent_name, None, f"错误 - 重试 {attempt + 1}/{max_retries}")
 
             if attempt == max_retries - 1:
-                print(f"Error in LLM call after {max_retries} attempts: {e}")
+                print(f"LLM 调用失败（已重试 {max_retries} 次）: {e}")
                 # Use default_factory if provided, otherwise create a basic default
                 if default_factory:
                     return default_factory()
@@ -89,7 +119,7 @@ def create_default_response(model_class: type[BaseModel]) -> BaseModel:
     default_values = {}
     for field_name, field in model_class.model_fields.items():
         if field.annotation == str:
-            default_values[field_name] = "Error in analysis, using default"
+            default_values[field_name] = "分析出错，使用默认值"
         elif field.annotation == float:
             default_values[field_name] = 0.0
         elif field.annotation == int:

@@ -43,10 +43,10 @@ def aswath_damodaran_agent(state: AgentState, agent_id: str = "aswath_damodaran_
 
     for ticker in tickers:
         # ─── Fetch core data ────────────────────────────────────────────────────
-        progress.update_status(agent_id, ticker, "Fetching financial metrics")
+        progress.update_status(agent_id, ticker, "获取财务指标")
         metrics = get_financial_metrics(ticker, end_date, period="ttm", limit=5, api_key=api_key)
 
-        progress.update_status(agent_id, ticker, "Fetching financial line items")
+        progress.update_status(agent_id, ticker, "获取财务科目")
         line_items = search_line_items(
             ticker,
             [
@@ -63,20 +63,20 @@ def aswath_damodaran_agent(state: AgentState, agent_id: str = "aswath_damodaran_
             api_key=api_key,
         )
 
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
         # ─── Analyses ───────────────────────────────────────────────────────────
-        progress.update_status(agent_id, ticker, "Analyzing growth and reinvestment")
+        progress.update_status(agent_id, ticker, "分析增长与再投资")
         growth_analysis = analyze_growth_and_reinvestment(metrics, line_items)
 
-        progress.update_status(agent_id, ticker, "Analyzing risk profile")
+        progress.update_status(agent_id, ticker, "分析风险特征")
         risk_analysis = analyze_risk_profile(metrics, line_items)
 
-        progress.update_status(agent_id, ticker, "Calculating intrinsic value (DCF)")
+        progress.update_status(agent_id, ticker, "计算内在价值（DCF）")
         intrinsic_val_analysis = calculate_intrinsic_value_dcf(metrics, line_items, risk_analysis)
 
-        progress.update_status(agent_id, ticker, "Assessing relative valuation")
+        progress.update_status(agent_id, ticker, "评估相对估值")
         relative_val_analysis = analyze_relative_valuation(metrics)
 
         # ─── Score & margin of safety ──────────────────────────────────────────
@@ -113,7 +113,7 @@ def aswath_damodaran_agent(state: AgentState, agent_id: str = "aswath_damodaran_
         }
 
         # ─── LLM: craft Damodaran-style narrative ──────────────────────────────
-        progress.update_status(agent_id, ticker, "Generating Damodaran analysis")
+        progress.update_status(agent_id, ticker, "生成达摩达兰分析")
         damodaran_output = generate_damodaran_output(
             ticker=ticker,
             analysis_data=analysis_data,
@@ -123,16 +123,16 @@ def aswath_damodaran_agent(state: AgentState, agent_id: str = "aswath_damodaran_
 
         damodaran_signals[ticker] = damodaran_output.model_dump()
 
-        progress.update_status(agent_id, ticker, "Done", analysis=damodaran_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=damodaran_output.reasoning)
 
-    # ─── Push message back to graph state ──────────────────────────────────────
+    # ─── 将消息推送回图状态 ──────────────────────────────────────
     message = HumanMessage(content=json.dumps(damodaran_signals), name=agent_id)
 
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(damodaran_signals, "Aswath Damodaran Agent")
+        show_agent_reasoning(damodaran_signals, "阿斯沃斯·达摩达兰智能体")
 
     state["data"]["analyst_signals"][agent_id] = damodaran_signals
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {"messages": [message], "data": state["data"]}
 
@@ -150,7 +150,7 @@ def analyze_growth_and_reinvestment(metrics: list, line_items: list) -> dict[str
     """
     max_score = 4
     if len(metrics) < 2:
-        return {"score": 0, "max_score": max_score, "details": "Insufficient history"}
+        return {"score": 0, "max_score": max_score, "details": "历史数据不足"}
 
     # Revenue CAGR (oldest to latest)
     revs = [m.revenue for m in reversed(metrics) if hasattr(m, "revenue") and m.revenue]
@@ -164,28 +164,28 @@ def analyze_growth_and_reinvestment(metrics: list, line_items: list) -> dict[str
     if cagr is not None:
         if cagr > 0.08:
             score += 2
-            details.append(f"Revenue CAGR {cagr:.1%} (> 8 %)")
+            details.append(f"收入复合增长率 {cagr:.1%}（> 8%）")
         elif cagr > 0.03:
             score += 1
-            details.append(f"Revenue CAGR {cagr:.1%} (> 3 %)")
+            details.append(f"收入复合增长率 {cagr:.1%}（> 3%）")
         else:
-            details.append(f"Sluggish revenue CAGR {cagr:.1%}")
+            details.append(f"收入复合增长低迷 {cagr:.1%}")
     else:
-        details.append("Revenue data incomplete")
+        details.append("收入数据不完整")
 
     # FCFF growth (proxy: free_cash_flow trend)
     fcfs = [li.free_cash_flow for li in reversed(line_items) if li.free_cash_flow]
     if len(fcfs) >= 2 and fcfs[-1] > fcfs[0]:
         score += 1
-        details.append("Positive FCFF growth")
+        details.append("自由现金流正增长")
     else:
-        details.append("Flat or declining FCFF")
+        details.append("自由现金流持平或下降")
 
     # Reinvestment efficiency (ROIC vs. 10 % hurdle)
     latest = metrics[0]
     if latest.return_on_invested_capital and latest.return_on_invested_capital > 0.10:
         score += 1
-        details.append(f"ROIC {latest.return_on_invested_capital:.1%} (> 10 %)")
+        details.append(f"投入资本回报率 {latest.return_on_invested_capital:.1%}（> 10%）")
 
     return {"score": score, "max_score": max_score, "details": "; ".join(details), "metrics": latest.model_dump()}
 
@@ -199,7 +199,7 @@ def analyze_risk_profile(metrics: list, line_items: list) -> dict[str, any]:
     """
     max_score = 3
     if not metrics:
-        return {"score": 0, "max_score": max_score, "details": "No metrics"}
+        return {"score": 0, "max_score": max_score, "details": "无指标数据"}
 
     latest = metrics[0]
     score, details = 0, []
@@ -211,9 +211,9 @@ def analyze_risk_profile(metrics: list, line_items: list) -> dict[str, any]:
             score += 1
             details.append(f"Beta {beta:.2f}")
         else:
-            details.append(f"High beta {beta:.2f}")
+            details.append(f"高Beta {beta:.2f}")
     else:
-        details.append("Beta NA")
+        details.append("Beta数据不可用")
 
     # Debt / Equity
     dte = getattr(latest, "debt_to_equity", None)
@@ -222,9 +222,9 @@ def analyze_risk_profile(metrics: list, line_items: list) -> dict[str, any]:
             score += 1
             details.append(f"D/E {dte:.1f}")
         else:
-            details.append(f"High D/E {dte:.1f}")
+            details.append(f"高D/E {dte:.1f}")
     else:
-        details.append("D/E NA")
+        details.append("D/E数据不可用")
 
     # Interest coverage
     ebit = getattr(latest, "ebit", None)
@@ -233,11 +233,11 @@ def analyze_risk_profile(metrics: list, line_items: list) -> dict[str, any]:
         coverage = ebit / abs(interest)
         if coverage > 3:
             score += 1
-            details.append(f"Interest coverage × {coverage:.1f}")
+            details.append(f"利息覆盖率 {coverage:.1f} 倍")
         else:
-            details.append(f"Weak coverage × {coverage:.1f}")
+            details.append(f"利息覆盖率较弱 {coverage:.1f} 倍")
     else:
-        details.append("Interest coverage NA")
+        details.append("利息覆盖率数据不可用")
 
     # Compute cost of equity for later use
     cost_of_equity = estimate_cost_of_equity(beta)
@@ -260,21 +260,21 @@ def analyze_relative_valuation(metrics: list) -> dict[str, any]:
     """
     max_score = 1
     if not metrics or len(metrics) < 5:
-        return {"score": 0, "max_score": max_score, "details": "Insufficient P/E history"}
+        return {"score": 0, "max_score": max_score, "details": "市盈率历史数据不足"}
 
     pes = [m.price_to_earnings_ratio for m in metrics if m.price_to_earnings_ratio]
     if len(pes) < 5:
-        return {"score": 0, "max_score": max_score, "details": "P/E data sparse"}
+        return {"score": 0, "max_score": max_score, "details": "市盈率数据稀疏"}
 
     ttm_pe = pes[0]
     median_pe = sorted(pes)[len(pes) // 2]
 
     if ttm_pe < 0.7 * median_pe:
-        score, desc = 1, f"P/E {ttm_pe:.1f} vs. median {median_pe:.1f} (cheap)"
+        score, desc = 1, f"市盈率 {ttm_pe:.1f} vs. 中位数 {median_pe:.1f}（便宜）"
     elif ttm_pe > 1.3 * median_pe:
-        score, desc = -1, f"P/E {ttm_pe:.1f} vs. median {median_pe:.1f} (expensive)"
+        score, desc = -1, f"市盈率 {ttm_pe:.1f} vs. 中位数 {median_pe:.1f}（昂贵）"
     else:
-        score, desc = 0, f"P/E inline with history"
+        score, desc = 0, f"市盈率与历史一致"
 
     return {"score": score, "max_score": max_score, "details": desc}
 
@@ -291,13 +291,13 @@ def calculate_intrinsic_value_dcf(metrics: list, line_items: list, risk_analysis
       • Discount @ cost of equity (no debt split given data limitations)
     """
     if not metrics or len(metrics) < 2 or not line_items:
-        return {"intrinsic_value": None, "details": ["Insufficient data"]}
+        return {"intrinsic_value": None, "details": ["数据不足"]}
 
     latest_m = metrics[0]
     fcff0 = getattr(latest_m, "free_cash_flow", None)
     shares = getattr(line_items[0], "outstanding_shares", None)
     if not fcff0 or not shares:
-        return {"intrinsic_value": None, "details": ["Missing FCFF or share count"]}
+        return {"intrinsic_value": None, "details": ["缺少自由现金流或股份数"]}
 
     # Growth assumptions
     revs = [m.revenue for m in reversed(metrics) if m.revenue]
@@ -343,7 +343,7 @@ def calculate_intrinsic_value_dcf(metrics: list, line_items: list, risk_analysis
             "discount_rate": discount,
             "projection_years": years,
         },
-        "details": ["FCFF DCF completed"],
+        "details": ["自由现金流DCF完成"],
     }
 
 
@@ -374,28 +374,28 @@ def generate_damodaran_output(
         [
             (
                 "system",
-                """You are Aswath Damodaran, Professor of Finance at NYU Stern.
-                Use your valuation framework to issue trading signals on US equities.
+                """你是阿斯沃斯·达摩达兰，纽约大学斯特恩商学院金融学教授。
+                使用你的估值框架对美国股票发出交易信号。
 
-                Speak with your usual clear, data-driven tone:
-                  ◦ Start with the company "story" (qualitatively)
-                  ◦ Connect that story to key numerical drivers: revenue growth, margins, reinvestment, risk
-                  ◦ Conclude with value: your FCFF DCF estimate, margin of safety, and relative valuation sanity checks
-                  ◦ Highlight major uncertainties and how they affect value
-                Return ONLY the JSON specified below.""",
+                用你一贯清晰、数据驱动的语调：
+                  ◦ 从公司的"故事"开始（定性描述）
+                  ◦ 将故事与关键数字驱动因素联系起来：收入增长、利润率、再投资、风险
+                  ◦ 以价值总结：你的自由现金流DCF估计、安全边际和相对估值合理性检查
+                  ◦ 强调主要不确定性及其对价值的影响
+                仅返回下面指定的JSON。用中文输出推理。""",
             ),
             (
                 "human",
-                """Ticker: {ticker}
+                """股票代码：{ticker}
 
-                Analysis data:
+                分析数据：
                 {analysis_data}
 
-                Respond EXACTLY in this JSON schema:
+                请严格按照以下JSON格式回复：
                 {{
                   "signal": "bullish" | "bearish" | "neutral",
-                  "confidence": float (0-100),
-                  "reasoning": "string"
+                  "confidence": 0到100之间的浮点数,
+                  "reasoning": "用中文写的推理字符串"
                 }}""",
             ),
         ]
@@ -407,7 +407,7 @@ def generate_damodaran_output(
         return AswathDamodaranSignal(
             signal="neutral",
             confidence=0.0,
-            reasoning="Parsing error; defaulting to neutral",
+            reasoning="解析错误；默认为中性",
         )
 
     return call_llm(

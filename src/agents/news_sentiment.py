@@ -44,7 +44,7 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
     sentiment_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching company news")
+        progress.update_status(agent_id, ticker, "获取公司新闻")
         company_news = get_company_news(
             ticker=ticker,
             end_date=end_date,
@@ -67,21 +67,20 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
               # We only take the first 5 articles, but this is configurable
               num_articles_to_analyze = 5
               articles_to_analyze = articles_without_sentiment[:num_articles_to_analyze]
-              progress.update_status(agent_id, ticker, f"Analyzing sentiment for {len(articles_to_analyze)} articles")
+              progress.update_status(agent_id, ticker, f"分析 {len(articles_to_analyze)} 篇文章的情感")
               
               for idx, news in enumerate(articles_to_analyze):
                 # We analyze based on title, but can also pass in the entire article text,
                 # but this is more expensive and requires extracting the text from the article.
                 # Note: this is an opportunity for improvement!
-                progress.update_status(agent_id, ticker, f"Analyzing sentiment for article {idx + 1} of {len(articles_to_analyze)}")
+                progress.update_status(agent_id, ticker, f"分析第 {idx + 1}/{len(articles_to_analyze)} 篇文章的情感")
                 prompt = (
-                    f"Please analyze the sentiment of the following news headline "
-                    f"with the following context: "
-                    f"The stock is {ticker}. "
-                    f"Determine if sentiment is 'positive', 'negative', or 'neutral' for the stock {ticker} only. "
-                    f"Also provide a confidence score for your prediction from 0 to 100. "
-                    f"Respond in JSON format.\n\n"
-                    f"Headline: {news.title}"
+                    f"请分析以下新闻标题的情感倾向，"
+                    f"背景信息：股票代码为 {ticker}。"
+                    f"请判断该新闻对股票 {ticker} 的影响是 'positive'（正面）、'negative'（负面）还是 'neutral'（中性）。"
+                    f"同时给出 0 到 100 的置信度评分。"
+                    f"请用 JSON 格式回复。\n\n"
+                    f"标题：{news.title}"
                 )
                 response = call_llm(prompt, Sentiment, agent_name=agent_id, state=state)
                 if response:
@@ -96,7 +95,7 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
             sentiment = pd.Series([n.sentiment for n in company_news]).dropna()
             news_signals = np.where(sentiment == "negative","bearish", np.where(sentiment == "positive", "bullish", "neutral")).tolist()
 
-        progress.update_status(agent_id, ticker, "Aggregating signals")
+        progress.update_status(agent_id, ticker, "汇总信号")
 
         # Calculate the sentiment signals
         bullish_signals = news_signals.count("bullish")
@@ -136,13 +135,15 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
         }
 
         # Create the sentiment analysis
+        reasoning_text = _build_reasoning_text(reasoning)
         sentiment_analysis[ticker] = {
             "signal": overall_signal,
             "confidence": confidence,
-            "reasoning": reasoning,
+            "reasoning": reasoning_text,
+            "reasoning_data": reasoning,
         }
 
-        progress.update_status(agent_id, ticker, "Done", analysis=json.dumps(reasoning, indent=4))
+        progress.update_status(agent_id, ticker, "完成", analysis=reasoning_text)
 
     message = HumanMessage(
         content=json.dumps(sentiment_analysis),
@@ -150,13 +151,13 @@ def news_sentiment_agent(state: AgentState, agent_id: str = "news_sentiment_agen
     )
 
     if state.get("metadata", {}).get("show_reasoning"):
-        show_agent_reasoning(sentiment_analysis, "News Sentiment Analysis Agent")
+        show_agent_reasoning(sentiment_analysis, "新闻情感分析师")
 
     if "analyst_signals" not in state["data"]:
         state["data"]["analyst_signals"] = {}
     state["data"]["analyst_signals"][agent_id] = sentiment_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {
         "messages": [message],
@@ -219,3 +220,23 @@ def _calculate_confidence_score(
     
     # Fallback to proportion-based confidence
     return round((max(bullish_signals, bearish_signals) / total_signals) * 100, 2)
+
+
+def _signal_cn(sig: str) -> str:
+    """Translate signal to Chinese."""
+    return {"bullish": "看涨", "bearish": "看跌", "neutral": "中性"}.get(sig, sig)
+
+
+def _build_reasoning_text(reasoning: dict) -> str:
+    """Convert the structured news sentiment reasoning dict to a concise Chinese text summary."""
+
+    ns = reasoning.get("news_sentiment", {})
+    sig = _signal_cn(ns.get("signal", "neutral"))
+    metrics = ns.get("metrics", {})
+    total = metrics.get("total_articles", 0)
+    bullish = metrics.get("bullish_articles", 0)
+    bearish = metrics.get("bearish_articles", 0)
+    neutral = metrics.get("neutral_articles", 0)
+    llm_count = metrics.get("articles_classified_by_llm", 0)
+
+    return f"新闻情绪：{sig}（共{total}篇，看涨{bullish}篇，看跌{bearish}篇，中性{neutral}篇，LLM分类{llm_count}篇）"

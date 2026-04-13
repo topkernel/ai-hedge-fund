@@ -31,6 +31,46 @@ def safe_float(value, default=0.0):
         return default
 
 
+_SIGNAL_CN = {"bullish": "看涨", "bearish": "看跌", "neutral": "中性"}
+
+
+def _build_reasoning_text(trend, mean_rev, momentum, volatility, stat_arb, combined) -> str:
+    """Build a human-readable Chinese summary of technical analysis."""
+    parts = []
+
+    # Trend
+    sig = _SIGNAL_CN.get(trend["signal"], trend["signal"])
+    adx = safe_float(trend["metrics"].get("adx", 0))
+    parts.append(f"趋势跟踪：{sig}（ADX={adx:.1f}）")
+
+    # Mean reversion
+    sig = _SIGNAL_CN.get(mean_rev["signal"], mean_rev["signal"])
+    z = safe_float(mean_rev["metrics"].get("z_score", 0))
+    rsi = safe_float(mean_rev["metrics"].get("rsi_14", 0))
+    parts.append(f"均值回归：{sig}（Z-score={z:.2f}，RSI={rsi:.1f}）")
+
+    # Momentum
+    sig = _SIGNAL_CN.get(momentum["signal"], momentum["signal"])
+    mom1m = safe_float(momentum["metrics"].get("momentum_1m", 0))
+    parts.append(f"动量：{sig}（1月动量={mom1m:+.2%}）")
+
+    # Volatility
+    sig = _SIGNAL_CN.get(volatility["signal"], volatility["signal"])
+    hv = safe_float(volatility["metrics"].get("historical_volatility", 0))
+    parts.append(f"波动率：{sig}（年化波动率={hv:.1%}）")
+
+    # Stat arb
+    sig = _SIGNAL_CN.get(stat_arb["signal"], stat_arb["signal"])
+    parts.append(f"统计套利：{sig}")
+
+    # Combined
+    combined_sig = _SIGNAL_CN.get(combined["signal"], combined["signal"])
+    conf = round(combined["confidence"] * 100)
+    parts.append(f"综合信号：{combined_sig}（置信度{conf}%）")
+
+    return "；".join(parts)
+
+
 ##### Technical Analyst #####
 def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analyst_agent"):
     """
@@ -50,7 +90,7 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
     technical_analysis = {}
 
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Analyzing price data")
+        progress.update_status(agent_id, ticker, "分析价格数据")
 
         # Get the historical price data
         prices = get_prices(
@@ -61,25 +101,25 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
         )
 
         if not prices:
-            progress.update_status(agent_id, ticker, "Failed: No price data found")
+            progress.update_status(agent_id, ticker, "失败：未找到价格数据")
             continue
 
         # Convert prices to a DataFrame
         prices_df = prices_to_df(prices)
 
-        progress.update_status(agent_id, ticker, "Calculating trend signals")
+        progress.update_status(agent_id, ticker, "计算趋势信号")
         trend_signals = calculate_trend_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Calculating mean reversion")
+        progress.update_status(agent_id, ticker, "计算均值回归")
         mean_reversion_signals = calculate_mean_reversion_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Calculating momentum")
+        progress.update_status(agent_id, ticker, "计算动量")
         momentum_signals = calculate_momentum_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Analyzing volatility")
+        progress.update_status(agent_id, ticker, "分析波动率")
         volatility_signals = calculate_volatility_signals(prices_df)
 
-        progress.update_status(agent_id, ticker, "Statistical analysis")
+        progress.update_status(agent_id, ticker, "统计分析")
         stat_arb_signals = calculate_stat_arb_signals(prices_df)
 
         # Combine all signals using a weighted ensemble approach
@@ -91,7 +131,7 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
             "stat_arb": 0.15,
         }
 
-        progress.update_status(agent_id, ticker, "Combining signals")
+        progress.update_status(agent_id, ticker, "综合信号")
         combined_signal = weighted_signal_combination(
             {
                 "trend": trend_signals,
@@ -104,38 +144,16 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
         )
 
         # Generate detailed analysis report for this ticker
+        reasoning_text = _build_reasoning_text(
+            trend_signals, mean_reversion_signals, momentum_signals,
+            volatility_signals, stat_arb_signals, combined_signal,
+        )
         technical_analysis[ticker] = {
             "signal": combined_signal["signal"],
             "confidence": round(combined_signal["confidence"] * 100),
-            "reasoning": {
-                "trend_following": {
-                    "signal": trend_signals["signal"],
-                    "confidence": round(trend_signals["confidence"] * 100),
-                    "metrics": normalize_pandas(trend_signals["metrics"]),
-                },
-                "mean_reversion": {
-                    "signal": mean_reversion_signals["signal"],
-                    "confidence": round(mean_reversion_signals["confidence"] * 100),
-                    "metrics": normalize_pandas(mean_reversion_signals["metrics"]),
-                },
-                "momentum": {
-                    "signal": momentum_signals["signal"],
-                    "confidence": round(momentum_signals["confidence"] * 100),
-                    "metrics": normalize_pandas(momentum_signals["metrics"]),
-                },
-                "volatility": {
-                    "signal": volatility_signals["signal"],
-                    "confidence": round(volatility_signals["confidence"] * 100),
-                    "metrics": normalize_pandas(volatility_signals["metrics"]),
-                },
-                "statistical_arbitrage": {
-                    "signal": stat_arb_signals["signal"],
-                    "confidence": round(stat_arb_signals["confidence"] * 100),
-                    "metrics": normalize_pandas(stat_arb_signals["metrics"]),
-                },
-            },
+            "reasoning": reasoning_text,
         }
-        progress.update_status(agent_id, ticker, "Done", analysis=json.dumps(technical_analysis, indent=4))
+        progress.update_status(agent_id, ticker, "完成", analysis=reasoning_text)
 
     # Create the technical analyst message
     message = HumanMessage(
@@ -144,12 +162,12 @@ def technical_analyst_agent(state: AgentState, agent_id: str = "technical_analys
     )
 
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(technical_analysis, "Technical Analyst")
+        show_agent_reasoning(technical_analysis, "技术分析师")
 
     # Add the signal to the analyst_signals list
     state["data"]["analyst_signals"][agent_id] = technical_analysis
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
 
     return {
         "messages": state["messages"] + [message],

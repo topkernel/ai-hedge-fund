@@ -28,10 +28,10 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
     munger_analysis = {}
     
     for ticker in tickers:
-        progress.update_status(agent_id, ticker, "Fetching financial metrics")
+        progress.update_status(agent_id, ticker, "获取财务指标")
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=10, api_key=api_key)  # Munger looks at longer periods
         
-        progress.update_status(agent_id, ticker, "Gathering financial line items")
+        progress.update_status(agent_id, ticker, "收集财务报表项目")
         financial_line_items = search_line_items(
             ticker,
             [
@@ -56,10 +56,10 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
             api_key=api_key,
         )
         
-        progress.update_status(agent_id, ticker, "Getting market cap")
+        progress.update_status(agent_id, ticker, "获取市值")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
         
-        progress.update_status(agent_id, ticker, "Fetching insider trades")
+        progress.update_status(agent_id, ticker, "获取内部人交易")
         # Munger values management with skin in the game
         insider_trades = get_insider_trades(
             ticker,
@@ -68,7 +68,7 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
             api_key=api_key,
         )
         
-        progress.update_status(agent_id, ticker, "Fetching company news")
+        progress.update_status(agent_id, ticker, "获取公司新闻")
         # Munger avoids businesses with frequent negative press
         company_news = get_company_news(
             ticker,
@@ -77,16 +77,16 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
             api_key=api_key,
         )
         
-        progress.update_status(agent_id, ticker, "Analyzing moat strength")
+        progress.update_status(agent_id, ticker, "分析护城河强度")
         moat_analysis = analyze_moat_strength(metrics, financial_line_items)
         
-        progress.update_status(agent_id, ticker, "Analyzing management quality")
+        progress.update_status(agent_id, ticker, "分析管理层质量")
         management_analysis = analyze_management_quality(financial_line_items, insider_trades)
         
-        progress.update_status(agent_id, ticker, "Analyzing business predictability")
+        progress.update_status(agent_id, ticker, "分析业务可预测性")
         predictability_analysis = analyze_predictability(financial_line_items)
         
-        progress.update_status(agent_id, ticker, "Calculating Munger-style valuation")
+        progress.update_status(agent_id, ticker, "计算芒格式估值")
         valuation_analysis = calculate_munger_valuation(financial_line_items, market_cap)
         
         # Combine partial scores with Munger's weighting preferences
@@ -117,10 +117,10 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
             "predictability_analysis": predictability_analysis,
             "valuation_analysis": valuation_analysis,
             # Include some qualitative assessment from news
-            "news_sentiment": analyze_news_sentiment(company_news) if company_news else "No news data available"
+            "news_sentiment": analyze_news_sentiment(company_news) if company_news else "无新闻数据"
         }
         
-        progress.update_status(agent_id, ticker, "Generating Charlie Munger analysis")
+        progress.update_status(agent_id, ticker, "生成查理·芒格分析")
         munger_output = generate_munger_output(
             ticker=ticker, 
             analysis_data=analysis_data[ticker],
@@ -135,7 +135,7 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
             "reasoning": munger_output.reasoning
         }
         
-        progress.update_status(agent_id, ticker, "Done", analysis=munger_output.reasoning)
+        progress.update_status(agent_id, ticker, "完成", analysis=munger_output.reasoning)
     
     # Wrap results in a single message for the chain
     message = HumanMessage(
@@ -145,9 +145,9 @@ def charlie_munger_agent(state: AgentState, agent_id: str = "charlie_munger_agen
     
     # Show reasoning if requested
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(munger_analysis, "Charlie Munger Agent")
+        show_agent_reasoning(munger_analysis, "查理·芒格智能体")
 
-    progress.update_status(agent_id, None, "Done")
+    progress.update_status(agent_id, None, "完成")
     
     # Add signals to the overall state
     state["data"]["analyst_signals"][agent_id] = munger_analysis
@@ -172,7 +172,7 @@ def analyze_moat_strength(metrics: list, financial_line_items: list) -> dict:
     if not metrics or not financial_line_items:
         return {
             "score": 0,
-            "details": "Insufficient data to analyze moat strength"
+            "details": "数据不足以分析护城河强度"
         }
     
     # 1. Return on Invested Capital (ROIC) analysis - Munger's favorite metric
@@ -184,17 +184,17 @@ def analyze_moat_strength(metrics: list, financial_line_items: list) -> dict:
         high_roic_count = sum(1 for r in roic_values if r > 0.15)
         if high_roic_count >= len(roic_values) * 0.8:  # 80% of periods show high ROIC
             score += 3
-            details.append(f"Excellent ROIC: >15% in {high_roic_count}/{len(roic_values)} periods")
+            details.append(f"投入资本回报率优秀: {high_roic_count}/{len(roic_values)} 期 >15%")
         elif high_roic_count >= len(roic_values) * 0.5:  # 50% of periods
             score += 2
-            details.append(f"Good ROIC: >15% in {high_roic_count}/{len(roic_values)} periods")
+            details.append(f"投入资本回报率良好: {high_roic_count}/{len(roic_values)} 期 >15%")
         elif high_roic_count > 0:
             score += 1
-            details.append(f"Mixed ROIC: >15% in only {high_roic_count}/{len(roic_values)} periods")
+            details.append(f"投入资本回报率混合: 仅 {high_roic_count}/{len(roic_values)} 期 >15%")
         else:
-            details.append("Poor ROIC: Never exceeds 15% threshold")
+            details.append("投入资本回报率差: 从未超过15%门槛")
     else:
-        details.append("No ROIC data available")
+        details.append("无投入资本回报率数据")
     
     # 2. Pricing power - check gross margin stability and trends
     gross_margins = [item.gross_margin for item in financial_line_items 
@@ -205,14 +205,14 @@ def analyze_moat_strength(metrics: list, financial_line_items: list) -> dict:
         margin_trend = sum(1 for i in range(1, len(gross_margins)) if gross_margins[i] >= gross_margins[i-1])
         if margin_trend >= len(gross_margins) * 0.7:  # Improving in 70% of periods
             score += 2
-            details.append("Strong pricing power: Gross margins consistently improving")
+            details.append("定价权强劲: 毛利率持续改善")
         elif sum(gross_margins) / len(gross_margins) > 0.3:  # Average margin > 30%
             score += 1
-            details.append(f"Good pricing power: Average gross margin {sum(gross_margins)/len(gross_margins):.1%}")
+            details.append(f"定价权良好: 平均毛利率 {sum(gross_margins)/len(gross_margins):.1%}")
         else:
-            details.append("Limited pricing power: Low or declining gross margins")
+            details.append("定价权有限: 毛利率偏低或下降")
     else:
-        details.append("Insufficient gross margin data")
+        details.append("毛利率数据不足")
     
     # 3. Capital intensity - Munger prefers low capex businesses
     if len(financial_line_items) >= 3:
@@ -228,16 +228,16 @@ def analyze_moat_strength(metrics: list, financial_line_items: list) -> dict:
             avg_capex_ratio = sum(capex_to_revenue) / len(capex_to_revenue)
             if avg_capex_ratio < 0.05:  # Less than 5% of revenue
                 score += 2
-                details.append(f"Low capital requirements: Avg capex {avg_capex_ratio:.1%} of revenue")
+                details.append(f"资本需求低: 平均资本支出占收入 {avg_capex_ratio:.1%}")
             elif avg_capex_ratio < 0.10:  # Less than 10% of revenue
                 score += 1
-                details.append(f"Moderate capital requirements: Avg capex {avg_capex_ratio:.1%} of revenue")
+                details.append(f"资本需求适中: 平均资本支出占收入 {avg_capex_ratio:.1%}")
             else:
-                details.append(f"High capital requirements: Avg capex {avg_capex_ratio:.1%} of revenue")
+                details.append(f"资本需求高: 平均资本支出占收入 {avg_capex_ratio:.1%}")
         else:
-            details.append("No capital expenditure data available")
+            details.append("无资本支出数据")
     else:
-        details.append("Insufficient data for capital intensity analysis")
+        details.append("数据不足以进行资本密集度分析")
     
     # 4. Intangible assets - Munger values R&D and intellectual property
     r_and_d = [item.research_and_development for item in financial_line_items
@@ -249,11 +249,11 @@ def analyze_moat_strength(metrics: list, financial_line_items: list) -> dict:
     if r_and_d and len(r_and_d) > 0:
         if sum(r_and_d) > 0:  # If company is investing in R&D
             score += 1
-            details.append("Invests in R&D, building intellectual property")
-    
+            details.append("投资研发，构建知识产权")
+
     if (goodwill_and_intangible_assets and len(goodwill_and_intangible_assets) > 0):
         score += 1
-        details.append("Significant goodwill/intangible assets, suggesting brand value or IP")
+        details.append("商誉/无形资产显著，表明品牌价值或知识产权")
     
     # Scale score to 0-10 range
     final_score = min(10, score * 10 / 9)  # Max possible raw score is 9
@@ -280,7 +280,7 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
     if not financial_line_items:
         return {
             "score": 0,
-            "details": "Insufficient data to analyze management quality"
+            "details": "数据不足以分析管理层质量"
         }
     
     # 1. Capital allocation - Check FCF to net income ratio
@@ -302,19 +302,19 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
             avg_ratio = sum(fcf_to_ni_ratios) / len(fcf_to_ni_ratios)
             if avg_ratio > 1.1:  # FCF > net income suggests good accounting
                 score += 3
-                details.append(f"Excellent cash conversion: FCF/NI ratio of {avg_ratio:.2f}")
+                details.append(f"现金转换优秀: 自由现金流/净利润比率 {avg_ratio:.2f}")
             elif avg_ratio > 0.9:  # FCF roughly equals net income
                 score += 2
-                details.append(f"Good cash conversion: FCF/NI ratio of {avg_ratio:.2f}")
+                details.append(f"现金转换良好: 自由现金流/净利润比率 {avg_ratio:.2f}")
             elif avg_ratio > 0.7:  # FCF somewhat lower than net income
                 score += 1
-                details.append(f"Moderate cash conversion: FCF/NI ratio of {avg_ratio:.2f}")
+                details.append(f"现金转换适中: 自由现金流/净利润比率 {avg_ratio:.2f}")
             else:
-                details.append(f"Poor cash conversion: FCF/NI ratio of only {avg_ratio:.2f}")
+                details.append(f"现金转换差: 自由现金流/净利润比率仅 {avg_ratio:.2f}")
         else:
-            details.append("Could not calculate FCF to Net Income ratios")
+            details.append("无法计算自由现金流/净利润比率")
     else:
-        details.append("Missing FCF or Net Income data")
+        details.append("缺少自由现金流或净利润数据")
     
     # 2. Debt management - Munger is cautious about debt
     debt_values = [item.total_debt for item in financial_line_items 
@@ -329,17 +329,17 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
         
         if recent_de_ratio < 0.3:  # Very low debt
             score += 3
-            details.append(f"Conservative debt management: D/E ratio of {recent_de_ratio:.2f}")
+            details.append(f"债务管理保守: 债务股本比 {recent_de_ratio:.2f}")
         elif recent_de_ratio < 0.7:  # Moderate debt
             score += 2
-            details.append(f"Prudent debt management: D/E ratio of {recent_de_ratio:.2f}")
+            details.append(f"债务管理审慎: 债务股本比 {recent_de_ratio:.2f}")
         elif recent_de_ratio < 1.5:  # Higher but still reasonable debt
             score += 1
-            details.append(f"Moderate debt level: D/E ratio of {recent_de_ratio:.2f}")
+            details.append(f"债务水平适中: 债务股本比 {recent_de_ratio:.2f}")
         else:
-            details.append(f"High debt level: D/E ratio of {recent_de_ratio:.2f}")
+            details.append(f"债务水平偏高: 债务股本比 {recent_de_ratio:.2f}")
     else:
-        details.append("Missing debt or equity data")
+        details.append("缺少债务或股本数据")
     
     # 3. Cash management efficiency - Munger values appropriate cash levels
     cash_values = [item.cash_and_equivalents for item in financial_line_items
@@ -354,19 +354,19 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
         if 0.1 <= cash_to_revenue <= 0.25:
             # Goldilocks zone - not too much, not too little
             score += 2
-            details.append(f"Prudent cash management: Cash/Revenue ratio of {cash_to_revenue:.2f}")
+            details.append(f"现金管理审慎: 现金/收入比率 {cash_to_revenue:.2f}")
         elif 0.05 <= cash_to_revenue < 0.1 or 0.25 < cash_to_revenue <= 0.4:
             # Reasonable but not ideal
             score += 1
-            details.append(f"Acceptable cash position: Cash/Revenue ratio of {cash_to_revenue:.2f}")
+            details.append(f"现金状况可接受: 现金/收入比率 {cash_to_revenue:.2f}")
         elif cash_to_revenue > 0.4:
             # Too much cash - potentially inefficient capital allocation
-            details.append(f"Excess cash reserves: Cash/Revenue ratio of {cash_to_revenue:.2f}")
+            details.append(f"现金储备过多: 现金/收入比率 {cash_to_revenue:.2f}")
         else:
             # Too little cash - potentially risky
-            details.append(f"Low cash reserves: Cash/Revenue ratio of {cash_to_revenue:.2f}")
+            details.append(f"现金储备偏低: 现金/收入比率 {cash_to_revenue:.2f}")
     else:
-        details.append("Insufficient cash or revenue data")
+        details.append("现金或收入数据不足")
     
     # 4. Insider activity - Munger values skin in the game
     if insider_trades and len(insider_trades) > 0:
@@ -382,19 +382,19 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
             buy_ratio = buys / total_trades
             if buy_ratio > 0.7:  # Strong insider buying
                 score += 2
-                details.append(f"Strong insider buying: {buys}/{total_trades} transactions are purchases")
+                details.append(f"内部人买入强劲: {buys}/{total_trades} 笔交易为买入")
             elif buy_ratio > 0.4:  # Balanced insider activity
                 score += 1
-                details.append(f"Balanced insider trading: {buys}/{total_trades} transactions are purchases")
+                details.append(f"内部人交易均衡: {buys}/{total_trades} 笔交易为买入")
             elif buy_ratio < 0.1 and sells > 5:  # Heavy selling
                 score -= 1  # Penalty for excessive selling
-                details.append(f"Concerning insider selling: {sells}/{total_trades} transactions are sales")
+                details.append(f"内部人卖出令人担忧: {sells}/{total_trades} 笔交易为卖出")
             else:
-                details.append(f"Mixed insider activity: {buys}/{total_trades} transactions are purchases")
+                details.append(f"内部人交易混合: {buys}/{total_trades} 笔交易为买入")
         else:
-            details.append("No recorded insider transactions")
+            details.append("无记录的内部人交易")
     else:
-        details.append("No insider trading data available")
+        details.append("无内部人交易数据")
     
     # 5. Consistency in share count - Munger prefers stable/decreasing shares
     share_counts = [item.outstanding_shares for item in financial_line_items
@@ -403,17 +403,17 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
     if share_counts and len(share_counts) >= 3:
         if share_counts[0] < share_counts[-1] * 0.95:  # 5%+ reduction in shares
             score += 2
-            details.append("Shareholder-friendly: Reducing share count over time")
+            details.append("股东友好: 股份数量持续减少")
         elif share_counts[0] < share_counts[-1] * 1.05:  # Stable share count
             score += 1
-            details.append("Stable share count: Limited dilution")
+            details.append("股份数量稳定: 稀释有限")
         elif share_counts[0] > share_counts[-1] * 1.2:  # >20% dilution
             score -= 1  # Penalty for excessive dilution
-            details.append("Concerning dilution: Share count increased significantly")
+            details.append("稀释令人担忧: 股份数量显著增加")
         else:
-            details.append("Moderate share count increase over time")
+            details.append("股份数量适度增长")
     else:
-        details.append("Insufficient share count data")
+        details.append("股份数量数据不足")
     
 
     # FCF / NI ratios -> already computed for scoring
@@ -477,7 +477,7 @@ def analyze_predictability(financial_line_items: list) -> dict:
     if not financial_line_items or len(financial_line_items) < 5:
         return {
             "score": 0,
-            "details": "Insufficient data to analyze business predictability (need 5+ years)"
+            "details": "数据不足以分析业务可预测性 (需要5年以上数据)"
         }
     
     # 1. Revenue stability and growth
@@ -493,27 +493,27 @@ def analyze_predictability(financial_line_items: list) -> dict:
                 growth_rates.append(growth_rate)
         
         if not growth_rates:
-            details.append("Cannot calculate revenue growth: zero revenue values found")
+            details.append("无法计算收入增长: 发现零收入值")
         else:
             avg_growth = sum(growth_rates) / len(growth_rates)
             growth_volatility = sum(abs(r - avg_growth) for r in growth_rates) / len(growth_rates)
-            
+
             if avg_growth > 0.05 and growth_volatility < 0.1:
                 # Steady, consistent growth (Munger loves this)
                 score += 3
-                details.append(f"Highly predictable revenue: {avg_growth:.1%} avg growth with low volatility")
+                details.append(f"收入高度可预测: 平均增长 {avg_growth:.1%}, 波动性低")
             elif avg_growth > 0 and growth_volatility < 0.2:
                 # Positive but somewhat volatile growth
                 score += 2
-                details.append(f"Moderately predictable revenue: {avg_growth:.1%} avg growth with some volatility")
+                details.append(f"收入可预测性中等: 平均增长 {avg_growth:.1%}, 有一定波动")
             elif avg_growth > 0:
                 # Growing but unpredictable
                 score += 1
-                details.append(f"Growing but less predictable revenue: {avg_growth:.1%} avg growth with high volatility")
+                details.append(f"收入增长但可预测性低: 平均增长 {avg_growth:.1%}, 波动性高")
             else:
-                details.append(f"Declining or highly unpredictable revenue: {avg_growth:.1%} avg growth")
+                details.append(f"收入下降或高度不可预测: 平均增长 {avg_growth:.1%}")
     else:
-        details.append("Insufficient revenue history for predictability analysis")
+        details.append("收入历史不足以进行可预测性分析")
     
     # 2. Operating income stability
     op_income = [item.operating_income for item in financial_line_items 
@@ -526,19 +526,19 @@ def analyze_predictability(financial_line_items: list) -> dict:
         if positive_periods == len(op_income):
             # Consistently profitable operations
             score += 3
-            details.append("Highly predictable operations: Operating income positive in all periods")
+            details.append("运营高度可预测: 所有期间营业利润均为正")
         elif positive_periods >= len(op_income) * 0.8:
             # Mostly profitable operations
             score += 2
-            details.append(f"Predictable operations: Operating income positive in {positive_periods}/{len(op_income)} periods")
+            details.append(f"运营可预测: {positive_periods}/{len(op_income)} 期营业利润为正")
         elif positive_periods >= len(op_income) * 0.6:
             # Somewhat profitable operations
             score += 1
-            details.append(f"Somewhat predictable operations: Operating income positive in {positive_periods}/{len(op_income)} periods")
+            details.append(f"运营可预测性一般: {positive_periods}/{len(op_income)} 期营业利润为正")
         else:
-            details.append(f"Unpredictable operations: Operating income positive in only {positive_periods}/{len(op_income)} periods")
+            details.append(f"运营不可预测: 仅 {positive_periods}/{len(op_income)} 期营业利润为正")
     else:
-        details.append("Insufficient operating income history")
+        details.append("营业利润历史不足")
     
     # 3. Margin consistency - Munger values stable margins
     op_margins = [item.operating_margin for item in financial_line_items 
@@ -551,14 +551,14 @@ def analyze_predictability(financial_line_items: list) -> dict:
         
         if margin_volatility < 0.03:  # Very stable margins
             score += 2
-            details.append(f"Highly predictable margins: {avg_margin:.1%} avg with minimal volatility")
+            details.append(f"利润率高度可预测: 平均 {avg_margin:.1%}, 波动极小")
         elif margin_volatility < 0.07:  # Moderately stable margins
             score += 1
-            details.append(f"Moderately predictable margins: {avg_margin:.1%} avg with some volatility")
+            details.append(f"利润率可预测性中等: 平均 {avg_margin:.1%}, 有一定波动")
         else:
-            details.append(f"Unpredictable margins: {avg_margin:.1%} avg with high volatility ({margin_volatility:.1%})")
+            details.append(f"利润率不可预测: 平均 {avg_margin:.1%}, 波动性高 ({margin_volatility:.1%})")
     else:
-        details.append("Insufficient margin history")
+        details.append("利润率历史不足")
     
     # 4. Cash generation reliability
     fcf_values = [item.free_cash_flow for item in financial_line_items 
@@ -571,15 +571,15 @@ def analyze_predictability(financial_line_items: list) -> dict:
         if positive_fcf_periods == len(fcf_values):
             # Consistently positive FCF
             score += 2
-            details.append("Highly predictable cash generation: Positive FCF in all periods")
+            details.append("现金流生成高度可预测: 所有期间自由现金流均为正")
         elif positive_fcf_periods >= len(fcf_values) * 0.8:
             # Mostly positive FCF
             score += 1
-            details.append(f"Predictable cash generation: Positive FCF in {positive_fcf_periods}/{len(fcf_values)} periods")
+            details.append(f"现金流生成可预测: {positive_fcf_periods}/{len(fcf_values)} 期自由现金流为正")
         else:
-            details.append(f"Unpredictable cash generation: Positive FCF in only {positive_fcf_periods}/{len(fcf_values)} periods")
+            details.append(f"现金流生成不可预测: 仅 {positive_fcf_periods}/{len(fcf_values)} 期自由现金流为正")
     else:
-        details.append("Insufficient free cash flow history")
+        details.append("自由现金流历史不足")
     
     # Scale score to 0-10 range
     # Maximum possible raw score would be 10 (3+3+2+2)
@@ -604,7 +604,7 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
     if not financial_line_items or market_cap is None:
         return {
             "score": 0,
-            "details": "Insufficient data to perform valuation"
+            "details": "数据不足以进行估值"
         }
     
     # Get FCF values (Munger's preferred "owner earnings" metric)
@@ -614,7 +614,7 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
     if not fcf_values or len(fcf_values) < 3:
         return {
             "score": 0,
-            "details": "Insufficient free cash flow data for valuation"
+            "details": "自由现金流数据不足以进行估值"
         }
     
     # 1. Normalize earnings by taking average of last 3-5 years
@@ -624,7 +624,7 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
     if normalized_fcf <= 0:
         return {
             "score": 0,
-            "details": f"Negative or zero normalized FCF ({normalized_fcf}), cannot value",
+            "details": f"标准化自由现金流为负或零 ({normalized_fcf}), 无法估值",
             "intrinsic_value": None
         }
     
@@ -632,7 +632,7 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
     if market_cap <= 0:
         return {
             "score": 0,
-            "details": f"Invalid market cap ({market_cap}), cannot value"
+            "details": f"市值无效 ({market_cap}), 无法估值"
         }
     
     fcf_yield = normalized_fcf / market_cap
@@ -642,15 +642,15 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
     # Let's use a sliding scale where higher FCF yields are more attractive
     if fcf_yield > 0.08:  # >8% FCF yield (P/FCF < 12.5x)
         score += 4
-        details.append(f"Excellent value: {fcf_yield:.1%} FCF yield")
+        details.append(f"估值优秀: 自由现金流收益率 {fcf_yield:.1%}")
     elif fcf_yield > 0.05:  # >5% FCF yield (P/FCF < 20x)
         score += 3
-        details.append(f"Good value: {fcf_yield:.1%} FCF yield")
+        details.append(f"估值良好: 自由现金流收益率 {fcf_yield:.1%}")
     elif fcf_yield > 0.03:  # >3% FCF yield (P/FCF < 33x)
         score += 1
-        details.append(f"Fair value: {fcf_yield:.1%} FCF yield")
+        details.append(f"估值合理: 自由现金流收益率 {fcf_yield:.1%}")
     else:
-        details.append(f"Expensive: Only {fcf_yield:.1%} FCF yield")
+        details.append(f"估值偏高: 自由现金流收益率仅 {fcf_yield:.1%}")
     
     # 4. Calculate simple intrinsic value range
     # Munger tends to use straightforward valuations, avoiding complex DCF models
@@ -663,15 +663,15 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
     
     if margin_of_safety_vs_fair_value > 0.3:  # >30% upside
         score += 3
-        details.append(f"Large margin of safety: {margin_of_safety_vs_fair_value:.1%} upside to reasonable value")
+        details.append(f"安全边际大: 相对合理价值有 {margin_of_safety_vs_fair_value:.1%} 上升空间")
     elif margin_of_safety_vs_fair_value > 0.1:  # >10% upside
         score += 2
-        details.append(f"Moderate margin of safety: {margin_of_safety_vs_fair_value:.1%} upside to reasonable value")
+        details.append(f"安全边际适中: 相对合理价值有 {margin_of_safety_vs_fair_value:.1%} 上升空间")
     elif margin_of_safety_vs_fair_value > -0.1:  # Within 10% of reasonable value
         score += 1
-        details.append(f"Fair price: Within 10% of reasonable value ({margin_of_safety_vs_fair_value:.1%})")
+        details.append(f"价格合理: 在合理价值的10%以内 ({margin_of_safety_vs_fair_value:.1%})")
     else:
-        details.append(f"Expensive: {-margin_of_safety_vs_fair_value:.1%} premium to reasonable value")
+        details.append(f"估值偏高: 相对合理价值有 {-margin_of_safety_vs_fair_value:.1%} 溢价")
     
     # 6. Check earnings trajectory for additional context
     # Munger likes growing owner earnings
@@ -681,12 +681,12 @@ def calculate_munger_valuation(financial_line_items: list, market_cap: float) ->
         
         if recent_avg > older_avg * 1.2:  # >20% growth in FCF
             score += 3
-            details.append("Growing FCF trend adds to intrinsic value")
+            details.append("自由现金流增长趋势增加内在价值")
         elif recent_avg > older_avg:
             score += 2
-            details.append("Stable to growing FCF supports valuation")
+            details.append("自由现金流稳定至增长，支撑估值")
         else:
-            details.append("Declining FCF trend is concerning")
+            details.append("自由现金流下降趋势令人担忧")
 
     # Scale score to 0-10 range
     # Maximum possible raw score would be 10 (4+3+3)
@@ -713,10 +713,10 @@ def analyze_news_sentiment(news_items: list) -> str:
     Munger pays attention to significant news but doesn't overreact to short-term stories.
     """
     if not news_items or len(news_items) == 0:
-        return "No news data available"
+        return "无新闻数据"
     
     # Just return a simple count for now - in a real implementation, this would use NLP
-    return f"Qualitative review of {len(news_items)} recent news items would be needed"
+    return f"需对 {len(news_items)} 条近期新闻进行定性分析"
 
 def _r(x, n=3):
     try:
@@ -823,18 +823,18 @@ def generate_munger_output(
     facts_bundle = make_munger_facts_bundle(analysis_data)
     template = ChatPromptTemplate.from_messages([
         ("system",
-         "You are Charlie Munger. Decide bullish, bearish, or neutral using only the facts. "
-         "Return JSON only. Keep reasoning under 120 characters. "
-         "Use the provided confidence exactly; do not change it."),
+         "你是查理·芒格。仅根据提供的事实决定看涨、看跌或中性。用中文回答。"
+         "仅返回JSON。推理控制在120字符以内。"
+         "严格使用提供的置信度，不要更改。"),
         ("human",
-         "Ticker: {ticker}\n"
-         "Facts:\n{facts}\n"
-         "Confidence: {confidence}\n"
-         "Return exactly:\n"
+         "股票代码: {ticker}\n"
+         "事实:\n{facts}\n"
+         "置信度: {confidence}\n"
+         "严格返回:\n"
          "{{\n"  # escaped {
          '  "signal": "bullish" | "bearish" | "neutral",\n'
          f'  "confidence": {confidence_hint},\n'
-         '  "reasoning": "short justification"\n'
+         '  "reasoning": "简短理由"\n'
          "}}")  # escaped }
     ])
 
@@ -845,7 +845,7 @@ def generate_munger_output(
     })
 
     def _default():
-        return CharlieMungerSignal(signal="neutral", confidence=confidence_hint, reasoning="Insufficient data")
+        return CharlieMungerSignal(signal="neutral", confidence=confidence_hint, reasoning="数据不足")
 
     return call_llm(
         prompt=prompt,
